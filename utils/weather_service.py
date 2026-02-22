@@ -50,6 +50,33 @@ class WeatherService:
                 "error": str(e)
             }
 
+    def get_live_air_quality(self):
+        """
+        Fetches live AQI and pollution data from Open-Meteo Air Quality API.
+        """
+        aq_url = "https://air-quality-api.open-meteo.com/v1/air-quality"
+        params = {
+            "latitude": self.lat,
+            "longitude": self.lon,
+            "current": ["european_aqi", "pm2_5", "pm10", "ozone", "nitrogen_dioxide"],
+            "timezone": "auto"
+        }
+        try:
+            response = requests.get(aq_url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            curr = data.get('current', {})
+            return {
+                "aqi": curr.get("european_aqi"),
+                "pm2_5": curr.get("pm2_5"),
+                "pm10": curr.get("pm10"),
+                "ozone": curr.get("ozone"),
+                "no2": curr.get("nitrogen_dioxide"),
+                "status": "Healthy" if curr.get("european_aqi", 0) < 50 else "Moderate" if curr.get("european_aqi", 0) < 100 else "Poor"
+            }
+        except Exception as e:
+            return {"error": str(e), "aqi": 45, "status": "Simulated"} # Fallback
+
 if __name__ == "__main__":
     ws = WeatherService()
     print(ws.get_live_rainfall())

@@ -47,6 +47,163 @@ let endMarker = null;
 let routePolyline = null;
 let currentLayer = null;
 
+async function fetchTourismSafety() {
+    const list = document.getElementById('tourism-landmark-list');
+    if (!list) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/tourism_safety`);
+        const data = await res.json();
+
+        // Update Weather Context (NEW)
+        const weatherCtx = document.getElementById('tourism-weather-context');
+        if (weatherCtx && data.weather_summary) {
+            const w = data.weather_summary;
+            weatherCtx.innerHTML = `🌦️ <b>Live Weather Sync:</b> ${w.current_rainfall_mm}mm Rain | Next Hour: ${w.predicted_next_1h_mm}mm`;
+        }
+
+        list.innerHTML = '';
+        data.reports.forEach(r => {
+            const item = document.createElement('div');
+            item.style.cssText = `
+                padding: 1rem; 
+                background: #f8fafc; 
+                border: 1px solid ${r.risk_score > 70 ? '#fecaca' : '#e2e8f0'}; 
+                border-radius: 8px;
+            `;
+
+            const riskColor = r.risk_score > 70 ? '#dc2626' : r.risk_score > 40 ? '#ca8a04' : '#16a34a';
+
+            item.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <strong style="color: #1e293b;">${r.name}</strong>
+                    <span style="font-size: 0.7rem; font-weight: 700; color: ${riskColor}; text-transform: uppercase;">${r.status}</span>
+                </div>
+                <div style="font-size: 0.8rem; color: #475569; line-height: 1.4;">
+                    🛡️ <b>Advice:</b> ${r.advice}
+                </div>
+                <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+                    <span style="font-size: 0.65rem; background: #fff; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0;">${r.type}</span>
+                    <button onclick="map.flyTo([${r.lat}, ${r.lon}], 16)" style="font-size: 0.65rem; background: #2563eb; color: white; border: none; padding: 2px 8px; border-radius: 4px; cursor: pointer;">🔍 View on Map</button>
+                </div>
+            `;
+            list.appendChild(item);
+
+            // Add blue marker for tourist sites
+            L.marker([r.lat, r.lon], {
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-gold.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41], iconAnchor: [12, 41]
+                })
+            }).bindPopup(`<b>${r.name}</b><br>Risk: ${r.status}<br>${r.advice}`)
+                .addTo(map);
+        });
+    } catch (err) {
+        console.error('Tourism fetch failed', err);
+    }
+}
+
+async function generateMediaPSA() {
+    const ticker = document.getElementById('media-ticker');
+    const social = document.getElementById('media-social');
+    const action = document.getElementById('media-action');
+    const btn = document.getElementById('generate-psa');
+
+    if (!ticker) return;
+
+    btn.textContent = '✨ Synthesizing...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE}/generate_media_alert`);
+        const data = await res.json();
+
+        ticker.textContent = data.ticker_tape;
+        social.textContent = data.social_media_brief;
+        action.textContent = data.community_action;
+
+    } catch (err) {
+        console.error('Media Alert failed', err);
+    } finally {
+        btn.textContent = '✨ SYNTHESIZE NEW PSA';
+        btn.disabled = false;
+    }
+}
+
+document.getElementById('generate-psa').addEventListener('click', generateMediaPSA);
+
+async function fetchIoTSensors() {
+    const grid = document.getElementById('iot-sensor-grid');
+    const indicator = document.getElementById('iot-refresh-indicator');
+    if (!grid) return;
+
+    try {
+        indicator.textContent = '⌛ Syncing with Nodes...';
+        const res = await fetch(`${API_BASE}/iot_sensor_data`);
+        const data = await res.json();
+
+        grid.innerHTML = '';
+
+        // 1. ADD REAL CITY-WIDE AQI HEADER (NEW)
+        if (data.real_city_aqi) {
+            const aq = data.real_city_aqi;
+            const aqCard = document.createElement('div');
+            aqCard.className = 'real-data-source';
+            aqCard.style.cssText = `
+                grid-column: 1 / -1;
+                padding: 0.75rem;
+                background: #f0fdf4;
+                border: 1px solid #bbf7d0;
+                border-radius: 6px;
+                margin-bottom: 0.5rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 0.8rem;
+            `;
+            const aqColor = aq.status === 'Healthy' ? '#166534' : aq.status === 'Moderate' ? '#92400e' : '#991b1b';
+            aqCard.innerHTML = `
+                <span>🌍 <b>REAL DATA:</b> Hyderabad Air Quality (AQI)</span>
+                <span style="font-weight: 700; color: ${aqColor};">${aq.aqi} - ${aq.status}</span>
+                <span style="font-size: 0.65rem; color: #64748b;">PM2.5: ${aq.pm2_5} | O3: ${aq.ozone}</span>
+            `;
+            grid.appendChild(aqCard);
+        }
+
+        data.sensors.forEach(s => {
+            const card = document.createElement('div');
+            card.style.cssText = `
+                padding: 0.75rem; 
+                background: white; 
+                border: 1px solid ${s.status === 'Critical' ? '#fee2e2' : '#e2e8f0'}; 
+                border-radius: 6px; 
+                box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            `;
+
+            const nalaColor = s.nala_fill_pct > 70 ? '#dc2626' : s.nala_fill_pct > 50 ? '#ca8a04' : '#16a34a';
+
+            card.innerHTML = `
+                <div style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.5rem; color: #1e293b;">📍 ${s.ward}</div>
+                <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 0.25rem;">Nala Fill: <b style="color: ${nalaColor}">${s.nala_fill_pct}%</b></div>
+                <div style="font-size: 0.75rem; color: #64748b; margin-bottom: 0.25rem;">Surface: <b>${s.surface_temp_c}°C</b></div>
+                <div style="font-size: 0.75rem; color: #64748b;">Water Table: <b>${s.water_depth_m}m</b></div>
+                <div style="margin-top: 0.5rem; text-align: right;">
+                    <span style="font-size: 0.6rem; padding: 2px 6px; border-radius: 10px; background: ${s.status === 'Critical' ? '#fee2e2' : '#f0fdf4'}; color: ${s.status === 'Critical' ? '#991b1b' : '#166534'};">● ${s.status}</span>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+
+        indicator.textContent = `Live @ ${data.timestamp}`;
+    } catch (err) {
+        indicator.textContent = '❌ Sync Failed';
+        console.error(err);
+    }
+}
+
+document.getElementById('refresh-iot').addEventListener('click', fetchIoTSensors);
+
 // 2. UI LOGIC & EVENT LISTENERS
 
 // Model button switching
@@ -57,8 +214,19 @@ document.querySelectorAll('.model-btn').forEach(btn => {
 
         btn.classList.add('active');
         const model = btn.dataset.model;
-        const formId = model === 'crop' ? 'crop-form' : `${model}-form`;
+        const formId = model === 'crop' ? 'crop-form' :
+            model === 'iot' ? 'iot-panel' :
+                model === 'tourism' ? 'tourism-panel' :
+                    model === 'media' ? 'media-panel' :
+                        `${model}-form`;
         document.getElementById(formId).classList.add('active');
+
+        // Auto-show result card for data-driven panels
+        const resultCard = document.getElementById('result-card');
+        if (['iot', 'tourism', 'media'].includes(model)) {
+            resultCard.style.display = 'flex';
+            resultCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
 
         const statusEl = document.getElementById('result-status');
         const detailsEl = document.getElementById('result-details');
@@ -76,6 +244,21 @@ document.querySelectorAll('.model-btn').forEach(btn => {
             statusEl.textContent = '👨‍🌾 Farmer Advisory Ready';
             detailsEl.textContent = 'Enter your crop details for advice. For an Advanced Satellite Scan, click your land on the map first.';
             valueEl.textContent = 'ADVISORY';
+        } else if (model === 'iot') {
+            statusEl.textContent = '📡 IoT Network Active';
+            detailsEl.textContent = 'Real-time telemetry from ward-level sensors. Nala levels and heat monitoring active.';
+            valueEl.textContent = 'LIVE';
+            fetchIoTSensors();
+        } else if (model === 'tourism') {
+            statusEl.textContent = '🏛️ Resilient Tourism Active';
+            detailsEl.textContent = 'Checking heritage sites & landmarks against climate risks. Safety advice loaded.';
+            valueEl.textContent = 'TOURISM';
+            fetchTourismSafety(); // Auto-load
+        } else if (model === 'media') {
+            statusEl.textContent = '📢 Media Intelligence Hub';
+            detailsEl.textContent = 'Synthesizing live PSAs for newsTicker and Social Broadcasts. Media toolkit ready.';
+            valueEl.textContent = 'MEDIA';
+            generateMediaPSA(); // Auto-load
         } else {
             statusEl.textContent = 'Ready for Analysis';
             detailsEl.textContent = 'Enter parameters and click Generate';

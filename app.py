@@ -18,6 +18,11 @@ from utils.grid_logic import ResilienceGrid
 from utils.weather_service import WeatherService
 from utils.routing_logic import SafeRouter
 from utils.agri_logic import AgriResilienceEngine
+from utils.iot_service import IoTSensorHub
+from utils.tourism_logic import TourismResilienceEngine
+from utils.media_logic import MediaIntelligenceEngine
+
+iot_hub = IoTSensorHub()
 
 app = FastAPI(
     title="Urban Climate Vulnerability API",
@@ -200,6 +205,34 @@ def urban_health_scan(req: RouteRequest):
         import traceback
         traceback.print_exc()
         raise HTTPException(500, str(e))
+
+@app.get("/iot_sensor_data")
+def get_iot_data():
+    """Returns simulated real-time IoT sensor readings from across the city."""
+    return iot_hub.get_live_sensor_data()
+
+@app.get("/tourism_safety")
+def tourism_safety():
+    """Returns climate-aware safety analysis for major landmarks."""
+    ws = WeatherService()
+    weather = ws.get_live_rainfall()
+    engine = TourismResilienceEngine(weather)
+    return {
+        "reports": engine.get_landmark_safety(),
+        "weather_summary": weather
+    }
+
+@app.get("/generate_media_alert")
+def generate_media_alert():
+    """Generates PSAs and Media Briefs based on current climate state."""
+    ws = WeatherService()
+    weather = ws.get_live_rainfall()
+    
+    # Mock some hotspots for the brief
+    stats = {"risk_hotspots": ["Khairatabad", "Secunderabad", "LB Nagar"]}
+    
+    engine = MediaIntelligenceEngine(weather, stats)
+    return engine.generate_broadcast_psa()
 
 # === ENDPOINTS ===
 

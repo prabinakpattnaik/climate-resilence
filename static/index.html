@@ -27,8 +27,11 @@
                 <button class="model-btn active" data-model="rainfall">🌧️ Rainfall Prediction</button>
                 <button class="model-btn" data-model="drought">☀️ Drought Assessment</button>
                 <button class="model-btn" data-model="heatwave">🔥 Heatwave Risk</button>
+                <button class="model-btn" data-model="tourism">🏛️ Resilient Tourism</button>
+                <button class="model-btn" data-model="media">📢 Media Intelligence</button>
                 <button class="model-btn" data-model="crop">🌾 Crop Impact Analysis</button>
                 <button class="model-btn" data-model="grid">🟦 Resilience Grid</button>
+                <button class="model-btn" data-model="iot">📡 IoT Monitoring Hub</button>
                 <button class="model-btn" data-model="route">🛣️ Safe Route Finder</button>
                 <button class="model-btn" data-model="agri">👨‍🌾 Farmer Advisory</button>
             </div>
@@ -405,6 +408,111 @@
         <section class="results-section">
             <h2>Analysis Results</h2>
             <div id="result-card" class="result-card">
+                <!-- IoT Sensor Monitoring Panel -->
+                <div id="iot-panel" class="model-form">
+                    <div style="background: #f8fafc; padding: 1.25rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <h3
+                            style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; color: #1e293b;">
+                            📡 Live Node Network (Hyderabad)
+                            <span id="iot-refresh-indicator"
+                                style="font-size: 0.7rem; font-weight: normal; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 12px;">Waiting...</span>
+                        </h3>
+                        <div id="iot-sensor-grid"
+                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+                            <!-- Dynamic Sensor Cards Load Here -->
+                        </div>
+                        <button id="refresh-iot" class="predict-btn"
+                            style="background: #1e293b; width: auto; padding: 0.75rem 1.5rem;">
+                            🔄 Refresh Live Nodes
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tourism Safety Panel -->
+                <div id="tourism-panel" class="model-form">
+                    <div
+                        style="background: #fff; padding: 1.25rem; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                        <h3
+                            style="margin-bottom: 0.5rem; color: #1e293b; display: flex; align-items: center; gap: 0.5rem;">
+                            🏛️ Tourist Safety Guide (AI)
+                        </h3>
+                        <div id="tourism-weather-context"
+                            style="margin-bottom: 1rem; padding: 0.5rem; background: #eff6ff; border-radius: 6px; font-size: 0.75rem; color: #1e40af; border: 1px solid #bfdbfe;">
+                            🌦️ <b>Live Weather Sync:</b> Fetching station data...
+                        </div>
+                        <div id="tourism-landmark-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <!-- Landmarks Load Here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Integrity & Audit Panel (NEW) -->
+                <div
+                    style="margin-top: 2rem; padding: 1rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;">
+                    <h4
+                        style="font-size: 0.85rem; color: #64748b; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+                        📋 Data Source Audit (Centre of Excellence Disclosure)
+                    </h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-size: 0.7rem;">
+                        <div style="padding: 0.5rem; background: white; border-radius: 6px; border: 1px solid #e2e8f0;">
+                            <b style="color: #16a34a;">🟢 REAL-TIME SOURCES</b>
+                            <ul style="margin-top: 0.25rem; padding-left: 1rem;">
+                                <li>Precipitation: Open-Meteo API</li>
+                                <li>Air Quality: Open-Meteo AQI</li>
+                                <li>GIS Mapping: OSM / Google</li>
+                                <li>Drainage: Native KML Overlays</li>
+                            </ul>
+                        </div>
+                        <div style="padding: 0.5rem; background: white; border-radius: 6px; border: 1px solid #e2e8f0;">
+                            <b style="color: #2563eb;">🔵 ARCHITECTURAL SIMS</b>
+                            <ul style="margin-top: 0.25rem; padding-left: 1rem;">
+                                <li>IoT Hub: Virtual Ward Nodes</li>
+                                <li>Crop Scan: Spectral Simulation</li>
+                                <li>Media: AI-Brief Synthesis</li>
+                                <li>Forecast: Random Forest Logic</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Media Intelligence Panel -->
+                <div id="media-panel" class="model-form">
+                    <div
+                        style="background: #1e293b; color: white; padding: 1.25rem; border-radius: 12px; border: 1px solid #334155; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);">
+                        <h3
+                            style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; color: #38bdf8;">
+                            📢 Newsroom Alert Generator (PSA)
+                        </h3>
+                        <div id="media-alert-content" style="display: flex; flex-direction: column; gap: 1rem;">
+                            <div
+                                style="background: #0f172a; padding: 0.75rem; border-radius: 6px; border: 1px dashed #38bdf8;">
+                                <small
+                                    style="color: #38bdf8; text-transform: uppercase; font-size: 0.6rem; letter-spacing: 0.1em;">LIVE
+                                    TICKER TAPE</small>
+                                <div id="media-ticker"
+                                    style="font-family: 'Courier New', monospace; color: #f8fafc; font-size: 0.9rem; margin-top: 0.25rem;">
+                                    --</div>
+                            </div>
+                            <div style="background: #334155; padding: 0.75rem; border-radius: 6px;">
+                                <small style="color: #94a3b8; text-transform: uppercase; font-size: 0.6rem;">SOCIAL
+                                    BROADCAST BRIEF</small>
+                                <div id="media-social"
+                                    style="font-size: 0.85rem; margin-top: 0.25rem; line-height: 1.5;">--</div>
+                            </div>
+                            <div style="background: #0ea5e9; padding: 0.75rem; border-radius: 6px; color: white;">
+                                <small style="text-transform: uppercase; font-size: 0.6rem; font-weight: 700;">🤝
+                                    COMMUNITY ACTION</small>
+                                <div id="media-action"
+                                    style="font-size: 0.85rem; font-weight: 500; margin-top: 0.25rem;">--</div>
+                            </div>
+                        </div>
+                        <button id="generate-psa" class="predict-btn"
+                            style="background: #38bdf8; color: #0f172a; border: none; margin-top: 1rem; font-weight: 700;">
+                            ✨ SYNTHESIZE NEW PSA
+                        </button>
+                    </div>
+                </div>
+
                 <div class="result-value" id="result-value">--</div>
                 <div class="result-status" id="result-status">Ready for Analysis</div>
                 <div class="result-details" id="result-details">Select a model to begin</div>
