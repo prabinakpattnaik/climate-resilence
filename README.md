@@ -1,7 +1,7 @@
 ---
 marp: true
 ---
-# Climate AI : ConnectBeacon
+# Climate AI
 
 AI-driven **Climate Vulnerability Assessment** for Hyderabad/Telangana: rainfall, drought, heatwave, and crop impact predictions. This document walks through datasets, EDA, feature engineering, model selection, API, and dashboard integration.
 
