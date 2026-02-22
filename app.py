@@ -142,10 +142,14 @@ def get_agri_advisory(req: AgriRequest):
     # Check logistics to nearest Mandi (using a default Bowenpally lat/lon for distance check)
     logistics = engine.get_market_logistics(mandi_distance_km=10.0) 
     
+    # NEW Phase 9: Flood Risk
+    flood_risk = engine.get_flood_risk_assessment()
+    
     return {
         "crop": req.crop,
         "recommendations": recommendations,
         "logistics": logistics,
+        "flood_risk": flood_risk,
         "weather": weather
     }
 
@@ -155,28 +159,45 @@ def farm_health_scan(req: RouteRequest):
     try:
         ws = WeatherService()
         weather = ws.get_live_rainfall()
-        
-        # In a real app we'd query historic drought risk, here we simulate based on weather
         base_dist_risk = 75.0 if weather.get('current_rainfall_mm', 0) < 5 else 30.0
-        
         engine = AgriResilienceEngine(weather, drought_risk=base_dist_risk)
-        
-        # Define a 1km x 1km bbox around the click point
-        farm_bbox = [
-            req.start_lat - 0.005, req.start_lon - 0.005,
-            req.start_lat + 0.005, req.start_lon + 0.005
-        ]
-        
+        farm_bbox = [req.start_lat - 0.005, req.start_lon - 0.005, req.start_lat + 0.005, req.start_lon + 0.005]
         scan_results = engine.get_satellite_health_scan(farm_bbox)
-        
+        flood_risk = engine.get_flood_risk_assessment()
         return {
             "center": {"lat": req.start_lat, "lon": req.start_lon},
             "grid": scan_results,
+            "flood_risk": flood_risk,
+            "timestamp": weather.get("timestamp")
+        }
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+@app.post("/urban_health_scan")
+def urban_health_scan(req: RouteRequest):
+    """Simulates a precision locality scan for urban areas (Ward-level)."""
+    try:
+        ws = WeatherService()
+        weather = ws.get_live_rainfall()
+        engine = AgriResilienceEngine(weather, drought_risk=40.0)
+        urban_bbox = [req.start_lat - 0.01, req.start_lon - 0.01, req.start_lat + 0.01, req.start_lon + 0.01]
+        # High-res 15x15 grid for 2km Ward area
+        scan_results = engine.get_satellite_health_scan(urban_bbox, resolution=15)
+        avg_ndvi = sum(s['ndvi'] for s in scan_results) / len(scan_results)
+        impervious_ratio = round((1.0 - avg_ndvi) * 100, 1)
+        return {
+            "center": {"lat": req.start_lat, "lon": req.start_lon},
+            "grid": scan_results,
+            "stats": {
+                "avg_greenery_index": round(avg_ndvi, 2),
+                "impervious_surface_pct": impervious_ratio,
+                "heat_island_risk": "High" if avg_ndvi < 0.4 else "Moderate" if avg_ndvi < 0.6 else "Low",
+                "drainage_bottleneck_risk": "Critical" if impervious_ratio > 75 else "Significant" if impervious_ratio > 50 else "Low"
+            },
             "timestamp": weather.get("timestamp")
         }
     except Exception as e:
         import traceback
-        print("ERROR in /farm_health_scan:")
         traceback.print_exc()
         raise HTTPException(500, str(e))
 

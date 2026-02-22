@@ -109,7 +109,7 @@ map.on('click', (e) => {
     const activeBtn = document.querySelector('.model-btn.active');
     const activeModel = activeBtn ? activeBtn.dataset.model : null;
 
-    if (activeModel !== 'route' && activeModel !== 'agri') return;
+    if (activeModel !== 'route' && activeModel !== 'agri' && activeModel !== 'grid') return;
 
     const statusEl = document.getElementById('result-status');
 
@@ -124,7 +124,7 @@ map.on('click', (e) => {
         if (lonInp) lonInp.value = e.latlng.lng;
 
         startPoint = e.latlng;
-        window.selectedFarmPoint = e.latlng; // Use unique name
+        window.selectedFarmPoint = e.latlng;
 
         if (startMarker) map.removeLayer(startMarker);
         if (precisionFarmLayer) precisionFarmLayer.clearLayers();
@@ -141,6 +141,30 @@ map.on('click', (e) => {
         }).addTo(map).bindPopup('<b>📍 Farm Center Selected</b><br>Coordinates captured and ready for scan.').openPopup();
 
         statusEl.innerHTML = '<span style="color: #16a34a; font-weight: bold;">✓ Farm location captured!</span> Now click "Scan Farm Health" in the sidebar.';
+        return;
+    }
+
+    if (activeModel === 'grid') {
+        const latInp = document.getElementById('urban-lat-hidden');
+        const lonInp = document.getElementById('urban-lon-hidden');
+
+        if (latInp) latInp.value = e.latlng.lat;
+        if (lonInp) lonInp.value = e.latlng.lng;
+
+        window.selectedUrbanPoint = e.latlng;
+
+        if (startMarker) map.removeLayer(startMarker);
+        startMarker = L.marker(e.latlng, {
+            icon: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            })
+        }).addTo(map).bindPopup('<b>🏙️ Neighborhood Selected</b><br>Locality captured. Ready for Precision Urban Scan.').openPopup();
+
         return;
     }
 
@@ -359,6 +383,9 @@ document.getElementById('agri-form').addEventListener('submit', async (e) => {
             <p style="margin-top: 0.25rem;">${result.logistics.advice}</p>
         `;
 
+        // Flood Risk Assessment
+        renderAgriFloodRisk(result.flood_risk);
+
         // Update Summary Card
         document.getElementById('result-card').style.display = 'flex';
         document.getElementById('result-value').textContent = 'ADVISORY READY';
@@ -427,6 +454,10 @@ document.getElementById('scan-farm-health').addEventListener('click', async () =
         document.getElementById('result-status').textContent = 'Precision NDVI Health Map Active';
         document.getElementById('result-details').textContent = `Satellite scan identified crop health variance across a 1km plot. Green zones show optimal vigor; Yellow/Red zones indicate moisture stress or potential pest activity.`;
 
+        // NEW: Also show flood resilience during satellite scan
+        document.getElementById('agri-results-container').style.display = 'block';
+        renderAgriFloodRisk(data.flood_risk);
+
     } catch (err) {
         showError('Satellite scan failed');
     } finally {
@@ -435,9 +466,90 @@ document.getElementById('scan-farm-health').addEventListener('click', async () =
     }
 });
 
-function renderPrecisionFarmHealth(grid) {
+document.getElementById('scan-urban-health').addEventListener('click', async () => {
+    const latInp = document.getElementById('urban-lat-hidden');
+    const lonInp = document.getElementById('urban-lon-hidden');
+    let point = window.selectedUrbanPoint;
+
+    if (!point && latInp && latInp.value) {
+        point = { lat: parseFloat(latInp.value), lng: parseFloat(lonInp.value) };
+    }
+
+    if (!point) {
+        showError('🏙️ Please click on a specific neighborhood on the map first to set the scan center.');
+        document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
+        return;
+    }
+
+    const btn = document.getElementById('scan-urban-health');
+    const legend = document.getElementById('ndvi-legend');
+    btn.textContent = '🛰️ Analyzing Locality Spectral Data...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE}/urban_health_scan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                start_lat: point.lat,
+                start_lon: point.lng,
+                end_lat: 0, end_lon: 0
+            })
+        });
+        const data = await res.json();
+
+        // Use a 2km grid for urban vs 1km for farm
+        renderPrecisionFarmHealth(data.grid, 0.002);
+        legend.style.display = 'block';
+
+        // Auto-switch to Satellite View for ground-level context
+        if (map.hasLayer(lightMap)) {
+            map.removeLayer(lightMap);
+            map.addLayer(satelliteMap);
+        }
+
+        const container = document.getElementById('urban-results-container');
+        const content = document.getElementById('urban-insights-content');
+        if (container) {
+            container.style.display = 'block';
+            container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        const stats = data.stats;
+        content.innerHTML = `
+            <p><strong>Locality:</strong> Neighborhood Ground-Truth Analysis</p>
+            <div style="margin: 0.75rem 0; padding: 0.5rem; background: #fff; border-left: 4px solid #2563eb; border-radius: 4px;">
+                <span title="Greenery vs Concrete Ratio">🌿 <strong>Green Index:</strong> ${stats.avg_greenery_index}</span><br>
+                <span title="Likelihood of rapid runoff">🏗️ <strong>Impervious Surface:</strong> ${stats.impervious_surface_pct}%</span>
+            </div>
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                <span style="flex: 1; padding: 4px; text-align: center; border-radius: 4px; background: ${stats.heat_island_risk === 'High' ? '#fee2e2' : '#f0fdf4'}; color: ${stats.heat_island_risk === 'High' ? '#991b1b' : '#166534'};">
+                    🔥 Heat: ${stats.heat_island_risk}
+                </span>
+                <span style="flex: 1; padding: 4px; text-align: center; border-radius: 4px; background: ${stats.drainage_bottleneck_risk === 'Critical' ? '#fee2e2' : '#fffbeb'}; color: ${stats.drainage_bottleneck_risk === 'Critical' ? '#991b1b' : '#92400e'};">
+                    🌊 Drain: ${stats.drainage_bottleneck_risk}
+                </span>
+            </div>
+            <p style="margin-top: 0.75rem; font-size: 0.7rem; color: #64748b; font-style: italic;">
+                *Analysis based on 2km locality clipping. High concrete (>70%) indicates flash flood sensitivity.
+            </p>
+        `;
+
+        document.getElementById('result-card').style.display = 'flex';
+        document.getElementById('result-value').textContent = 'WARD ANALYSIS COMPLETE';
+        document.getElementById('result-status').textContent = 'Precision Neighborhood Intelligence';
+        document.getElementById('result-details').textContent = `Localized scan identified ${stats.impervious_surface_pct}% concrete coverage. Surface runoff risk is ${stats.drainage_bottleneck_risk} due to urban build-up.`;
+
+    } catch (err) {
+        showError('Urban scan failed');
+    } finally {
+        btn.textContent = 'Scan Local Neighborhood';
+        btn.disabled = false;
+    }
+});
+
+function renderPrecisionFarmHealth(grid, cellSize = 0.001) {
     precisionFarmLayer.clearLayers();
-    const cellSize = 0.001; // High res
 
     grid.forEach(cell => {
         const bounds = [
@@ -450,6 +562,10 @@ function renderPrecisionFarmHealth(grid) {
         const v = cell.ndvi;
         const color = v > 0.75 ? '#22c55e' : v > 0.55 ? '#facc15' : v > 0.35 ? '#f97316' : '#ef4444';
 
+        // Check if we are in Urban Scan mode (based on cellSize)
+        const isUrban = cellSize > 0.0015;
+        const adviceLabel = isUrban ? 'Citizen Alert' : 'Farmer Advice';
+
         L.rectangle(bounds, {
             color: color,
             weight: 0.5,
@@ -458,9 +574,9 @@ function renderPrecisionFarmHealth(grid) {
         }).bindPopup(`
             <div style="font-family: 'Inter', sans-serif;">
                 <strong>${cell.status}</strong><br>
-                NDVI: ${v}<br>
+                NDVI: ${cell.ndvi}<br>
                 <div style="margin-top: 5px; padding: 5px; background: #f8fafc; border-left: 3px solid ${color}; font-size: 0.8rem;">
-                    📢 <strong>Farmer Advice:</strong><br>${cell.advice}
+                    📢 <strong>${adviceLabel}:</strong><br>${cell.advice}
                 </div>
             </div>
         `).addTo(precisionFarmLayer);
@@ -557,7 +673,7 @@ function renderResilienceGrid(data) {
         const bounds = [[cell.lat - cellSize / 2, cell.lon - cellSize / 2], [cell.lat + cellSize / 2, cell.lon + cellSize / 2]];
         const score = cell.vulnerability_score;
         const color = score > 80 ? '#dc2626' : score > 60 ? '#f97316' : score > 40 ? '#facc15' : score > 20 ? '#a8a29e' : '#10b981';
-        L.rectangle(bounds, { color: color, weight: 1, fillOpacity: 0.5, fillColor: color })
+        L.rectangle(bounds, { color: color, weight: 1, fillOpacity: 0.5, fillColor: color, bubblingMouseEvents: true })
             .bindPopup(`Score: ${score.toFixed(1)}<br>${cell.risk_factors || ''}`)
             .addTo(gridLayer);
     });
@@ -783,3 +899,32 @@ document.querySelectorAll('.simulate-btn').forEach(btn => {
 loadKmlList();
 loadSummary();
 loadEmergencyResources();
+
+function renderAgriFloodRisk(fr) {
+    const floodBox = document.getElementById('agri-flood-box');
+    if (!floodBox || !fr) return;
+
+    const floodColor = fr.level === 'High' ? '#fef2f2' : fr.level === 'Medium' ? '#fffbeb' : '#f0fdf4';
+    const floodBorder = fr.level === 'High' ? '#fecaca' : fr.level === 'Medium' ? '#fde68a' : '#bbf7d0';
+    const floodText = fr.level === 'High' ? '#991b1b' : fr.level === 'Medium' ? '#92400e' : '#166534';
+
+    floodBox.style.background = floodColor;
+    floodBox.style.border = `1px solid ${floodBorder}`;
+    floodBox.style.color = floodText;
+    floodBox.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <strong>Standing Water Risk:</strong>
+            <span style="padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; background: ${floodText}; color: white;">${fr.level} Risk</span>
+        </div>
+        <div style="height: 6px; background: #e2e8f0; border-radius: 3px; margin-bottom: 1rem; overflow: hidden;">
+            <div style="height: 100%; width: ${fr.risk_score}%; background: ${floodText}; transition: width 1s ease-in-out;"></div>
+        </div>
+        <ul style="padding-left: 1.25rem; margin-bottom: 0.5rem;">
+            ${fr.drainage_advice.map(adv => `<li style="margin-bottom: 0.25rem;">${adv}</li>`).join('')}
+        </ul>
+        <p style="font-size: 0.75rem; font-style: italic; border-top: 1px solid ${floodBorder}; pt: 0.5rem; mt: 0.5rem;">
+            🌱 <strong>Post-Flood Tip:</strong> ${fr.post_flood_tip}
+        </p>
+    `;
+}
+

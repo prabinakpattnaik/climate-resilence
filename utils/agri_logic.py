@@ -44,15 +44,18 @@ class AgriResilienceEngine:
 
         return recommendations
 
-    def get_satellite_health_scan(self, farm_bbox):
+    def get_satellite_health_scan(self, farm_bbox, resolution=10):
         """
         Simulates an NDVI (Satellite Crop Health) scan for a specific farm area.
-        Returns a high-resolution grid (0.001) for the farm.
+        Generates a grid of [resolution x resolution] cells.
         """
         min_lat, min_lon, max_lat, max_lon = farm_bbox
-        # Create a dense precision grid
-        lats = [min_lat + i*0.001 for i in range(10)]
-        lons = [min_lon + i*0.001 for i in range(10)]
+        # Calculate step size to cover the whole bbox
+        lat_step = (max_lat - min_lat) / (resolution - 1)
+        lon_step = (max_lon - min_lon) / (resolution - 1)
+        
+        lats = [min_lat + i*lat_step for i in range(resolution)]
+        lons = [min_lon + i*lon_step for i in range(resolution)]
         
         scan_results = []
         for lat in lats:
@@ -100,3 +103,33 @@ class AgriResilienceEngine:
                 "advice": "Use the 'Safe Route' map to check transport corridors before starting tractors."
             }
         return {"safe_to_travel": True, "advice": "Weather looks stable for harvest transport."}
+
+    def get_flood_risk_assessment(self):
+        """Assesses farm-level flood risk and drainage needs."""
+        rain_now = self.weather.get('current_rainfall_mm', 0)
+        rain_pred = self.weather.get('predicted_next_1h_mm', 0)
+        
+        # Calculate standing water risk (0-100)
+        # Based on current rain + predicted + "drought risk" as proxy for soil saturation (inverse)
+        saturation_proxy = (100 - self.drought_risk) / 100.0
+        standing_water_risk = (rain_now * 0.5) + (rain_pred * 2.0) + (saturation_proxy * 20)
+        standing_water_risk = min(100, round(standing_water_risk, 1))
+        
+        level = "High" if standing_water_risk > 70 else "Medium" if standing_water_risk > 30 else "Low"
+        
+        advice = []
+        if level == "High":
+            advice.append("⚠️ Clear primary field bunds immediately to allow runoff.")
+            advice.append("🚫 Avoid fertilizer application; it will wash away.")
+        elif level == "Medium":
+            advice.append("🔍 Inspect drainage outlets for silt blockage.")
+            advice.append("💡 Consider early harvest for low-lying plots if crops are mature.")
+        else:
+            advice.append("✅ Drainage is currently sufficient for local rainfall.")
+
+        return {
+            "risk_score": standing_water_risk,
+            "level": level,
+            "drainage_advice": advice,
+            "post_flood_tip": "Aerated soil once water recedes to prevent root rot."
+        }
