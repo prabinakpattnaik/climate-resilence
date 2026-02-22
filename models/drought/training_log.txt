@@ -1,0 +1,23 @@
+============================================================
+EXPERIMENT 2: DROUGHT PREDICTION (Regression)
+============================================================
+
+[Data] Loading and splitting data...
+   Train shape: (1152, 5), Test shape: (288, 5)
+
+[Experiment] Training candidate models...
+   > Training Ridge Regression...
+     Best Params: {'regressor__alpha': 0.1}
+     R2: 1.0000 | RMSE: 0.00
+   > Training SVR...
+     Best Params: {'regressor__C': 10, 'regressor__kernel': 'linear'}
+     R2: 1.0000 | RMSE: 0.08
+   > Training Random Forest...
+     Best Params: {'regressor__max_depth': None, 'regressor__n_estimators': 100}
+     R2: 1.0000 | RMSE: 0.12
+
+============================================================
+WINNER: Ridge Regression (R2: 1.0000)
+============================================================
+Plots saved to C:\Hemanth\ConnectBeacon\Climate_AI\static\plots
+Report saved to C:\Hemanth\ConnectBeacon\Climate_AI\models\drought

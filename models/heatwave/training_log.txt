@@ -1,0 +1,24 @@
+============================================================
+EXPERIMENT 3: HEATWAVE PREDICTION (Classification)
+============================================================
+
+[Data] Loading and splitting data...
+   Train shape: (2917, 8), Test shape: (730, 8)
+   Heatwave Ratio: 2.14%
+
+[Experiment] Training candidate models...
+   > Training Logistic Regression...
+     Best Params: {'classifier__C': 10.0}
+     Accuracy: 0.9014 | F1: 0.2500
+   > Training Random Forest...
+     Best Params: {'max_depth': 10, 'n_estimators': 100}
+     Accuracy: 0.9795 | F1: 0.4444
+   > Training Gradient Boosting...
+     Best Params: {'learning_rate': 0.05, 'max_depth': 5, 'n_estimators': 50}
+     Accuracy: 0.9808 | F1: 0.4615
+
+============================================================
+WINNER: Gradient Boosting (F1 Score: 0.4615)
+============================================================
+Plots saved to C:\Hemanth\ConnectBeacon\Climate_AI\static\plots
+Report saved to C:\Hemanth\ConnectBeacon\Climate_AI\models\heatwave

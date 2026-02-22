@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Climate Vulnerability Dashboard - Hyderabad</title>
+    <meta name="description" content="AI-powered climate predictions for Hyderabad/Telangana">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css?v=3">
+</head>
+
+<body>
+    <header class="header">
+        <h1>Climate Vulnerability Intelligence</h1>
+        <span class="location">📍 Hyderabad, Telangana</span>
+    </header>
+
+    <main class="dashboard">
+        <!-- Model Selection -->
+        <section class="control-panel">
+            <h2>Analysis Models</h2>
+            <div class="model-buttons">
+                <button class="model-btn active" data-model="rainfall">🌧️ Rainfall Prediction</button>
+                <button class="model-btn" data-model="drought">☀️ Drought Assessment</button>
+                <button class="model-btn" data-model="heatwave">🔥 Heatwave Risk</button>
+                <button class="model-btn" data-model="crop">🌾 Crop Impact Analysis</button>
+                <button class="model-btn" data-model="grid">🟦 Resilience Grid</button>
+                <button class="model-btn" data-model="route">🛣️ Safe Route Finder</button>
+            </div>
+        </section>
+
+        <!-- Input Form -->
+        <section class="input-section">
+            <h2>Configuration Parameters</h2>
+
+            <!-- Rainfall Form (Advanced) -->
+            <form id="rainfall-form" class="model-form active">
+                <div class="form-row">
+                    <label>Target Month</label>
+                    <select name="month" required>
+                        <option value="1">January</option>
+                        <option value="2">February</option>
+                        <option value="3">March</option>
+                        <option value="4">April</option>
+                        <option value="5">May</option>
+                        <option value="6">June</option>
+                        <option value="7">July</option>
+                        <option value="8">August</option>
+                        <option value="9">September</option>
+                        <option value="10">October</option>
+                        <option value="11">November</option>
+                        <option value="12">December</option>
+                    </select>
+                </div>
+                <!-- Manual Lags for Professional Control -->
+                <div class="form-row">
+                    <label title="Rainfall in millimeters from the previous calendar month.">Lag 1 (Prev Month Rain
+                        mm)</label>
+                    <input type="number" name="lag_1" value="120" step="0.1" required>
+                </div>
+                <div class="form-row">
+                    <label title="Rainfall from two months ago.">Lag 2 (2 Months Ago mm)</label>
+                    <input type="number" name="lag_2" value="80" step="0.1" required>
+                </div>
+                <div class="form-row">
+                    <label title="Rainfall from three months ago.">Lag 3 (3 Months Ago mm)</label>
+                    <input type="number" name="lag_3" value="40" step="0.1" required>
+                </div>
+                <div class="form-row">
+                    <label title="Rainfall from the same month in the previous year (Year-over-Year).">Lag 12 (Same
+                        Month Last Year mm)</label>
+                    <input type="number" name="lag_12" value="150" step="0.1" required>
+                </div>
+                <button type="submit" class="predict-btn">Generate Prediction</button>
+                <button type="button" class="simulate-btn" data-form="rainfall">🔄 Simulate Scenario</button>
+            </form>
+
+            <!-- Drought Form -->
+            <form id="drought-form" class="model-form">
+                <div class="form-row">
+                    <label title="Average rainfall over the last 3 months. Normal is ~300-500mm in monsoon.">3-Month Avg
+                        Rainfall (mm)</label>
+                    <input type="number" name="rolling_3mo" value="50" required>
+                </div>
+                <div class="form-row">
+                    <label title="Average rainfall over the last 6 months. Indicators broader moisture trends.">6-Month
+                        Avg Rainfall (mm)</label>
+                    <input type="number" name="rolling_6mo" value="60" required>
+                </div>
+                <div class="form-row">
+                    <label
+                        title="Percentage deviation from 'Long Period Average' (LPA). Positive is surplus, negative is deficit.">Deficit
+                        from Normal (%)</label>
+                    <input type="number" name="deficit_pct" value="30" required>
+                </div>
+                <div class="form-row">
+                    <label
+                        title="The model considers if the soil is already moisture-depleted from the previous year.">Last
+                        Year Drought Score</label>
+                    <input type="number" name="prev_year_drought" value="25" required>
+                </div>
+                <div class="form-row">
+                    <label
+                        title="Monsoon performance index. 1.0 is normal, <0.8 is weak (El Niño), >1.2 is strong.">Monsoon
+                        Strength (0-2)</label>
+                    <input type="number" name="monsoon_strength" step="0.1" value="0.8" required>
+                </div>
+                <button type="submit" class="predict-btn">Assess Drought Risk</button>
+                <button type="button" class="simulate-btn" data-form="drought">🔄 Simulate Scenario</button>
+            </form>
+
+            <!-- Heatwave Form -->
+            <form id="heatwave-form" class="model-form">
+                <div class="form-row">
+                    <label
+                        title="Highest recorded temperature yesterday. Heatwaves often occur after 3 consecutive hot days.">Yesterday
+                        Max Temp (°C)</label>
+                    <input type="number" name="max_temp_lag1" step="0.1" value="42" required>
+                </div>
+                <div class="form-row">
+                    <label title="Maximum temperature from two days ago.">2 Days Ago Max (°C)</label>
+                    <input type="number" name="max_temp_lag2" step="0.1" value="41" required>
+                </div>
+                <div class="form-row">
+                    <label title="Maximum temperature from three days ago.">3 Days Ago Max (°C)</label>
+                    <input type="number" name="max_temp_lag3" step="0.1" value="39" required>
+                </div>
+                <div class="form-row">
+                    <label
+                        title="Relative humidity. High humidity combined with heat increases the 'Heat Index' (Feels Like).">Humidity
+                        (%)</label>
+                    <input type="number" name="humidity" value="25" required>
+                </div>
+                <div class="form-row">
+                    <label title="Calendar month (1-12). Heatwaves in Hyderabad are concentrated in March-June.">Month
+                        (1-12)</label>
+                    <input type="number" name="month" min="1" max="12" value="5" required>
+                </div>
+                <button type="submit" class="predict-btn">Calculate Probability</button>
+                <button type="button" class="simulate-btn" data-form="heatwave">🔄 Simulate Scenario</button>
+            </form>
+
+            <!-- Crop Impact Form -->
+            <form id="crop-form" class="model-form">
+                <div class="form-row">
+                    <label title="The specific crop being analyzed. Each crop has different climate resilience.">Crop
+                        Type</label>
+                    <select name="crop_type" required>
+                        <option value="Rice">Rice</option>
+                        <option value="Cotton(lint)">Cotton</option>
+                        <option value="Maize">Maize</option>
+                        <option value="Groundnut">Groundnut</option>
+                        <option value="Sugarcane">Sugarcane</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label title="The geographical state for regional policy and soil context.">State</label>
+                    <select name="state" required>
+                        <option value="Andhra Pradesh">Andhra Pradesh</option>
+                        <option value="Telangana">Telangana</option>
+                        <option value="Karnataka">Karnataka</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label title="Agricultural season: Kharif (Monsoon), Rabi (Winter).">Season</label>
+                    <select name="season" required>
+                        <option value="Kharif">Kharif</option>
+                        <option value="Rabi">Rabi</option>
+                        <option value="Whole Year">Whole Year</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label title="Total projected seasonal rainfall in mm.">Projected Rainfall (mm)</label>
+                    <input type="number" name="rainfall" value="1000" required>
+                </div>
+                <div class="form-row">
+                    <label title="Anticipated rainfall deviation. -30% implies significant drought stress.">Rainfall
+                        Anomaly (%)</label>
+                    <input type="number" name="rainfall_anomaly" value="-10" required>
+                </div>
+                <div class="form-row">
+                    <label
+                        title="Fertilizer intensity. Higher usage can sometimes offset mild climate stress.">Fertilizer
+                        (kg/ha)</label>
+                    <input type="number" name="fertilizer_per_area" value="120" required>
+                </div>
+                <div class="form-row">
+                    <label title="Pesticide application rate.">Pesticide (kg/ha)</label>
+                    <input type="number" name="pesticide_per_area" step="0.1" value="2.5" required>
+                </div>
+                <button type="submit" class="predict-btn">Analyze Impact</button>
+                <button type="button" class="simulate-btn" data-form="crop">🔄 Simulate Scenario</button>
+            </form>
+
+            <!-- Resilience Grid Form -->
+            <form id="grid-form" class="model-form">
+                <div class="info-box">
+                    <p>The <strong>Resilience Grid</strong> calculates flood vulnerability for 500m x 500m cells across
+                        central Hyderabad based on drainage proximity and historical hotspots.</p>
+                </div>
+                <!-- Live Weather Summary -->
+                <div id="live-weather-box" class="weather-info-box" style="display:none;">
+                    <h4>📍 Live Nowcasting</h4>
+                    <p id="weather-text">Fetching live rainfall data...</p>
+                </div>
+                <button type="submit" class="predict-btn">🚀 Load Resilience Grid Map</button>
+                <button type="button" class="scroll-to-map btn-secondary" style="width:100%; margin-top:0.5rem;">🗺️
+                    Scroll to Map</button>
+            </form>
+
+            <!-- Safe Route Form -->
+            <form id="route-form" class="model-form">
+                <div class="info-box">
+                    <p>Select your <strong>Start</strong> and <strong>Destination</strong> by clicking on the map. The
+                        AI will calculate a path that avoids high-risk flood zones.</p>
+                </div>
+                <div class="form-row">
+                    <label>Start Point:</label>
+                    <input type="text" id="route-start" placeholder="Click map to set start" readonly>
+                </div>
+                <div class="form-row">
+                    <label>Destination:</label>
+                    <input type="text" id="route-end" placeholder="Click map to set end" readonly>
+                </div>
+                <button type="submit" class="predict-btn">📍 Find Safest Path</button>
+
+                <!-- NEW: Emergency Shortcut -->
+                <div
+                    style="margin-top: 1rem; padding: 1rem; background: #fff5f5; border-radius: 8px; border: 1px solid #feb2b2;">
+                    <h4 style="margin-bottom: 0.5rem; color: #c53030; font-size: 0.9rem;">🆘 Emergency Safe Haven</h4>
+                    <p style="font-size: 0.75rem; margin-bottom: 0.75rem; color: #742a2a;">Need immediate shelter? Click
+                        below to find the nearest relief center.</p>
+                    <button type="button" id="find-safe-haven" class="btn-secondary"
+                        style="width: 100%; border-color: #c53030; color: #c53030;">Find Nearest Safe Haven</button>
+                </div>
+
+                <button type="button" class="scroll-to-map btn-secondary" style="width:100%; margin-top:1rem;">🗺️
+                    Scroll to Map</button>
+            </form>
+
+            <!-- Emergency Contacts Panel -->
+            <div class="crisis-contacts"
+                style="margin-top: 1.5rem; padding: 1.25rem; background: #1a202c; color: white; border-radius: 12px;">
+                <h3 style="color: #feb2b2; font-size: 1.1rem; margin-bottom: 1rem;">📢 Emergency Hotlines</h3>
+                <div style="display: grid; gap: 0.75rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; border-bottom: 1px solid #4a5568; padding-bottom: 0.5rem;">
+                        <span style="font-size: 0.85rem;">GHMC Control</span>
+                        <span style="font-weight: bold; color: #fbd38d;">040-21111111</span>
+                    </div>
+                    <div
+                        style="display: flex; justify-content: space-between; border-bottom: 1px solid #4a5568; padding-bottom: 0.5rem;">
+                        <span style="font-size: 0.85rem;">NDRF Hyderabad</span>
+                        <span style="font-weight: bold; color: #fbd38d;">9701019909</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="font-size: 0.85rem;">Fire & Rescue</span>
+                        <span style="font-weight: bold; color: #fbd38d;">101</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Stats -->
+        <section class="stats-section">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">🌧️ Rainfall</div>
+                    <div class="stat-value" id="stat-rainfall">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">☀️ Drought Score</div>
+                    <div class="stat-value" id="stat-drought">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">🔥 Heatwave</div>
+                    <div class="stat-value" id="stat-heatwave">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">🌾 Crop Impact</div>
+                    <div class="stat-value" id="stat-crop">--</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results -->
+        <section class="results-section">
+            <h2>Analysis Results</h2>
+            <div id="result-card" class="result-card">
+                <div class="result-value" id="result-value">--</div>
+                <div class="result-status" id="result-status">Ready for Analysis</div>
+                <div class="result-details" id="result-details">Select a model to begin</div>
+            </div>
+
+            <!-- Path Details Panel -->
+            <div id="route-details-panel" class="route-details" style="display: none;">
+                <h3>Safe Route Breakdown</h3>
+                <div id="route-summary-stats" class="route-stats"></div>
+                <ul id="route-steps-list"></ul>
+            </div>
+        </section>
+
+        <!-- Map Section -->
+        <section class="map-section">
+            <h2>Geospatial Intelligence</h2>
+            <div class="map-controls">
+                <select id="kml-select">
+                    <option value="">Select Region Overlay</option>
+                </select>
+                <button id="load-kml" class="btn-secondary">Load Layer</button>
+
+                <!-- New Resilience Controls -->
+                <div class="resilience-addon">
+                    <label for="opacity-slider">Grid Opacity:</label>
+                    <input type="range" id="opacity-slider" min="0" max="100" value="60">
+                </div>
+                <button id="report-flooding" class="btn-secondary danger-btn">⚠️ Report Active Flooding</button>
+            </div>
+            <div id="map"></div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>Climate Vulnerability Intelligence • v2.0 Enterprise Edition</p>
+        <p><a href="/docs" target="_blank">API Documentation</a></p>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
+    <script src="/static/app.js?v=3"></script>
+</body>
+
+</html>

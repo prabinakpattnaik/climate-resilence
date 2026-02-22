@@ -1,0 +1,23 @@
+============================================================
+EXPERIMENT 1: RAINFALL PREDICTION (Regression)
+============================================================
+
+[Data] Loading and splitting data...
+   Train shape: (1152, 7), Test shape: (288, 7)
+
+[Experiment] Training candidate models...
+   > Training Linear Regression...
+     R2: 0.5484 | RMSE: 60.46
+   > Training Random Forest...
+     Best Params: {'max_depth': 10, 'min_samples_leaf': 5, 'n_estimators': 100}
+     R2: 0.5676 | RMSE: 59.16
+   > Training Gradient Boosting...
+     Best Params: {'learning_rate': 0.01, 'max_depth': 3, 'n_estimators': 200}
+     R2: 0.5338 | RMSE: 61.43
+
+============================================================
+WINNER: Random Forest (R2: 0.5676)
+============================================================
+Plots saved to C:\Hemanth\ConnectBeacon\Climate_AI\static\plots
+Report saved to C:\Hemanth\ConnectBeacon\Climate_AI\models\rainfall
+Model saved to C:\Hemanth\ConnectBeacon\Climate_AI\models\rainfall\best_model.joblib

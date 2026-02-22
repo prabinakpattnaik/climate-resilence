@@ -1,0 +1,23 @@
+============================================================
+EXPERIMENT 4: CROP YIELD IMPACT (Regression)
+============================================================
+
+[Data] Loading and splitting data...
+   Train shape: (499, 7), Test shape: (125, 7)
+
+[Experiment] Training candidate models...
+   > Training Lasso...
+     Best Params: {'regressor__alpha': 0.1}
+     R2: 0.1534 | RMSE: 15.88
+   > Training Decision Tree...
+     Best Params: {'regressor__max_depth': 5, 'regressor__min_samples_leaf': 5}
+     R2: 0.2787 | RMSE: 14.65
+   > Training Random Forest...
+     Best Params: {'regressor__max_depth': 10, 'regressor__n_estimators': 100}
+     R2: 0.4396 | RMSE: 12.92
+
+============================================================
+WINNER: Random Forest (R2: 0.4396)
+============================================================
+Plots saved to C:\Hemanth\ConnectBeacon\Climate_AI\static\plots
+Report saved to C:\Hemanth\ConnectBeacon\Climate_AI\models\crop_impact
