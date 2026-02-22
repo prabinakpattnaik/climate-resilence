@@ -17,6 +17,7 @@ from typing import Optional, List
 from utils.grid_logic import ResilienceGrid
 from utils.weather_service import WeatherService
 from utils.routing_logic import SafeRouter
+from utils.agri_logic import AgriResilienceEngine
 
 app = FastAPI(
     title="Urban Climate Vulnerability API",
@@ -123,6 +124,61 @@ class RouteRequest(BaseModel):
     start_lon: float
     end_lat: float
     end_lon: float
+
+class AgriRequest(BaseModel):
+    crop: str
+    state: str
+    drought_prob: float
+
+@app.post("/agri_advisory")
+def get_agri_advisory(req: AgriRequest):
+    """Provides climate-aware advice for farmers."""
+    ws = WeatherService()
+    weather = ws.get_live_rainfall()
+    
+    engine = AgriResilienceEngine(weather, drought_risk=req.drought_prob)
+    recommendations = engine.get_crop_advisor(req.crop)
+    
+    # Check logistics to nearest Mandi (using a default Bowenpally lat/lon for distance check)
+    logistics = engine.get_market_logistics(mandi_distance_km=10.0) 
+    
+    return {
+        "crop": req.crop,
+        "recommendations": recommendations,
+        "logistics": logistics,
+        "weather": weather
+    }
+
+@app.post("/farm_health_scan")
+def farm_health_scan(req: RouteRequest):
+    """Simulates a precision NDVI scan for a farmer's plot."""
+    try:
+        ws = WeatherService()
+        weather = ws.get_live_rainfall()
+        
+        # In a real app we'd query historic drought risk, here we simulate based on weather
+        base_dist_risk = 75.0 if weather.get('current_rainfall_mm', 0) < 5 else 30.0
+        
+        engine = AgriResilienceEngine(weather, drought_risk=base_dist_risk)
+        
+        # Define a 1km x 1km bbox around the click point
+        farm_bbox = [
+            req.start_lat - 0.005, req.start_lon - 0.005,
+            req.start_lat + 0.005, req.start_lon + 0.005
+        ]
+        
+        scan_results = engine.get_satellite_health_scan(farm_bbox)
+        
+        return {
+            "center": {"lat": req.start_lat, "lon": req.start_lon},
+            "grid": scan_results,
+            "timestamp": weather.get("timestamp")
+        }
+    except Exception as e:
+        import traceback
+        print("ERROR in /farm_health_scan:")
+        traceback.print_exc()
+        raise HTTPException(500, str(e))
 
 # === ENDPOINTS ===
 
@@ -287,7 +343,10 @@ EMERGENCY_RESOURCES = [
     {"id": "hosp_2", "name": "Apollo Hospitals, Jubilee Hills", "type": "Hospital", "lat": 17.425, "lon": 78.412, "contact": "040-23607777"},
     {"id": "ndrf_1", "name": "NDRF Station, Hyderabad", "type": "NDRF", "lat": 17.475, "lon": 78.435, "contact": "9701019909"},
     {"id": "shelter_1", "name": "GHMC Shelter - Khairatabad", "type": "Shelter", "lat": 17.412, "lon": 78.462, "contact": "040-21111111"},
-    {"id": "shelter_2", "name": "Community Hall - Nampally", "type": "Shelter", "lat": 17.392, "lon": 78.471, "contact": "040-21111111"}
+    {"id": "shelter_2", "name": "Community Hall - Nampally", "type": "Shelter", "lat": 17.392, "lon": 78.471, "contact": "040-21111111"},
+    {"id": "mandi_1", "name": "Bowenpally Agri Mandi", "type": "Mandi", "lat": 17.478, "lon": 78.468, "contact": "040-23743454"},
+    {"id": "mandi_2", "name": "Malakpet Market", "type": "Mandi", "lat": 17.378, "lon": 78.498, "contact": "040-24545367"},
+    {"id": "mandi_3", "name": "Gudimalkapur Flower Market", "type": "Mandi", "lat": 17.390, "lon": 78.442, "contact": "040-23512345"}
 ]
 
 @app.get("/emergency_resources")

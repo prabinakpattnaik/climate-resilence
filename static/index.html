@@ -30,6 +30,7 @@
                 <button class="model-btn" data-model="crop">🌾 Crop Impact Analysis</button>
                 <button class="model-btn" data-model="grid">🟦 Resilience Grid</button>
                 <button class="model-btn" data-model="route">🛣️ Safe Route Finder</button>
+                <button class="model-btn" data-model="agri">👨‍🌾 Farmer Advisory</button>
             </div>
         </section>
 
@@ -192,8 +193,88 @@
                     <label title="Pesticide application rate.">Pesticide (kg/ha)</label>
                     <input type="number" name="pesticide_per_area" step="0.1" value="2.5" required>
                 </div>
-                <button type="submit" class="predict-btn">Analyze Impact</button>
+                <button type="submit" class="predict-btn">🚀 Predict Crop Loss</button>
                 <button type="button" class="simulate-btn" data-form="crop">🔄 Simulate Scenario</button>
+            </form>
+
+            <!-- Farmer Advisory Form -->
+            <form id="agri-form" class="model-form">
+                <div class="info-box" style="background: #f0fdf4; border-color: #bbf7d0;">
+                    <p style="color: #166534;"><strong>AI Agri-Advisor:</strong> Aligning with India's DPI goals to
+                        provide actionable climate intelligence for farmers.</p>
+                </div>
+                <div class="form-row">
+                    <label>Current Crop</label>
+                    <select name="crop">
+                        <option value="Paddy">Paddy (Rice)</option>
+                        <option value="Cotton">Cotton</option>
+                        <option value="Sugarcane">Sugarcane</option>
+                        <option value="Maize">Maize</option>
+                        <option value="Millets">Millets</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Assessed Drought Probability (%)</label>
+                    <input type="number" name="drought_prob" value="65" min="0" max="100">
+                </div>
+                <!-- Hidden coordinate storage for robustness -->
+                <input type="hidden" id="farm-lat-hidden">
+                <input type="hidden" id="farm-lon-hidden">
+                <button type="submit" class="predict-btn" style="background: #16a34a;">Generate Advisory Report</button>
+
+                <!-- NEW: Precision Satellite Scan -->
+                <div
+                    style="margin-top: 1.5rem; padding: 1.25rem; background: #064e3b; border-radius: 12px; border: 1px solid #065f46; color: white;">
+                    <h4 style="margin-bottom: 0.5rem; color: #34d399; font-size: 0.9rem;">🛰️ Advanced Satellite Scanner
+                    </h4>
+                    <p style="font-size: 0.75rem; margin-bottom: 1rem; color: #a7f3d0;">Simulate an ISRO/Bhuvan NDVI
+                        scan to identify specific stressed zones on your land.</p>
+                    <button type="button" id="scan-farm-health" class="btn-primary"
+                        style="width: 100%; background: #059669; border: none;">Scan Farm Health (Precision UI)</button>
+
+                    <div id="ndvi-legend" style="margin-top: 1rem; font-size: 0.7rem; display: none;">
+                        <span style="display: block; margin-bottom: 0.25rem;">Health Index (NDVI) Scale:</span>
+                        <div style="display: flex; gap: 2px;">
+                            <div style="flex: 1; height: 8px; background: #ef4444;" title="Critical Stress"></div>
+                            <div style="flex: 1; height: 8px; background: #f97316;" title="High Stress"></div>
+                            <div style="flex: 1; height: 8px; background: #facc15;" title="Moderate Risk"></div>
+                            <div style="flex: 1; height: 8px; background: #22c55e;" title="Healthy"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 2px;">
+                            <span>Stressed</span>
+                            <span>Optimal</span>
+                        </div>
+
+                        <div class="interpretation-guide"
+                            style="margin-top: 1rem; padding: 0.75rem; background: #065f46; border-radius: 8px; border: 1px solid #34d39960;">
+                            <h5 style="color: #34d399; margin-bottom: 0.25rem; font-size: 0.75rem;">💡 Citizen
+                                Interpretation Guide</h5>
+                            <p style="color: #a7f3d0; font-size: 0.65rem; line-height: 1.2;">
+                                <strong>How it works:</strong> The AI combines ISRO-simulation data with your local
+                                drought risk (65% in this case).<br><br>
+                                <strong>Orange/Red Zones:</strong> These areas show early moisture stress. The soil is
+                                drying faster here due to local terrain.<br><br>
+                                <strong>Green Zones:</strong> Crops are healthy and vigorous. No urgent action needed.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="agri-results-container" style="margin-top: 1.5rem; display: none;">
+                    <h4
+                        style="margin-bottom: 0.75rem; color: #166534; border-bottom: 2px solid #bbf7d0; padding-bottom: 0.25rem;">
+                        📝 Actionable Recommendations</h4>
+                    <div id="agri-cards-list" style="display: grid; gap: 1rem;">
+                        <!-- Cards injected by JS -->
+                    </div>
+
+                    <h4
+                        style="margin-top: 1.5rem; margin-bottom: 0.75rem; color: #166534; border-bottom: 2px solid #bbf7d0; padding-bottom: 0.25rem;">
+                        🚚 Market Logistical Safety</h4>
+                    <div id="agri-logistics-box" style="padding: 1rem; border-radius: 8px; font-size: 0.85rem;">
+                        <!-- Logistics info injected by JS -->
+                    </div>
+                </div>
             </form>
 
             <!-- Resilience Grid Form -->

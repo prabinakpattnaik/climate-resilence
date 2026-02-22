@@ -20,6 +20,7 @@ const map = L.map('map', {
 // Layer Globals
 let gridLayer = L.layerGroup();
 let emergencyLayer = L.layerGroup().addTo(map);
+let precisionFarmLayer = L.featureGroup();
 
 // Add Layer Control
 const baseMaps = {
@@ -28,7 +29,8 @@ const baseMaps = {
 };
 const overlayMaps = {
     "Resilience Grid": gridLayer,
-    "Emergency Hub": emergencyLayer
+    "Emergency Hub": emergencyLayer,
+    "Precision Farm Health": precisionFarmLayer
 };
 L.control.layers(baseMaps, overlayMaps).addTo(map);
 
@@ -70,6 +72,10 @@ document.querySelectorAll('.model-btn').forEach(btn => {
             statusEl.textContent = '🟦 Ready to Load Grid';
             detailsEl.textContent = 'Click the button below to fetch live weather and calculate urban resilience.';
             valueEl.textContent = '--';
+        } else if (model === 'agri') {
+            statusEl.textContent = '👨‍🌾 Farmer Advisory Ready';
+            detailsEl.textContent = 'Enter your crop details for advice. For an Advanced Satellite Scan, click your land on the map first.';
+            valueEl.textContent = 'ADVISORY';
         } else {
             statusEl.textContent = 'Ready for Analysis';
             detailsEl.textContent = 'Enter parameters and click Generate';
@@ -99,10 +105,44 @@ map.on('click', (e) => {
         return;
     }
 
-    // 2. Check for Routing Mode Selection
-    if (!document.getElementById('route-form').classList.contains('active')) return;
+    // 2. Determine Mode from Active Button
+    const activeBtn = document.querySelector('.model-btn.active');
+    const activeModel = activeBtn ? activeBtn.dataset.model : null;
+
+    if (activeModel !== 'route' && activeModel !== 'agri') return;
 
     const statusEl = document.getElementById('result-status');
+
+    if (activeModel === 'agri') {
+        const mapDiv = document.getElementById('map');
+        const latInp = document.getElementById('farm-lat-hidden');
+        const lonInp = document.getElementById('farm-lon-hidden');
+
+        mapDiv.dataset.farmLat = e.latlng.lat;
+        mapDiv.dataset.farmLon = e.latlng.lng;
+        if (latInp) latInp.value = e.latlng.lat;
+        if (lonInp) lonInp.value = e.latlng.lng;
+
+        startPoint = e.latlng;
+        window.selectedFarmPoint = e.latlng; // Use unique name
+
+        if (startMarker) map.removeLayer(startMarker);
+        if (precisionFarmLayer) precisionFarmLayer.clearLayers();
+
+        startMarker = L.marker(startPoint, {
+            icon: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            })
+        }).addTo(map).bindPopup('<b>📍 Farm Center Selected</b><br>Coordinates captured and ready for scan.').openPopup();
+
+        statusEl.innerHTML = '<span style="color: #16a34a; font-weight: bold;">✓ Farm location captured!</span> Now click "Scan Farm Health" in the sidebar.';
+        return;
+    }
 
     if (!startPoint) {
         startPoint = e.latlng;
@@ -265,6 +305,171 @@ document.getElementById('crop-form').addEventListener('submit', async (e) => {
     }
 });
 
+document.getElementById('agri-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const btn = e.target.querySelector('button');
+    const container = document.getElementById('agri-results-container');
+    const cardsList = document.getElementById('agri-cards-list');
+    const logisticsBox = document.getElementById('agri-logistics-box');
+
+    btn.textContent = '⌛ Compiling AI Advisory...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE}/agri_advisory`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                crop: formData.get('crop'),
+                state: 'Telangana',
+                drought_prob: parseFloat(formData.get('drought_prob')) || 0
+            })
+        });
+        const result = await res.json();
+
+        container.style.display = 'block';
+        cardsList.innerHTML = '';
+
+        if (result.recommendations.length === 0) {
+            cardsList.innerHTML = '<p style="font-size: 0.85rem; color: #64748b;">No high-priority climate risks detected for your selection. Continue normal operations.</p>';
+        }
+
+        result.recommendations.forEach(rec => {
+            const card = document.createElement('div');
+            const bgColor = rec.type === 'SWITCH' ? '#eff6ff' : rec.type === 'ACTION' ? '#f0fdf4' : '#fff7ed';
+            const borderColor = rec.type === 'SWITCH' ? '#bfdbfe' : rec.type === 'ACTION' ? '#bbf7d0' : '#ffedd5';
+            const titleColor = rec.type === 'SWITCH' ? '#1e40af' : rec.type === 'ACTION' ? '#166534' : '#9a3412';
+
+            card.style.cssText = `padding: 1rem; border-radius: 8px; background: ${bgColor}; border: 1px solid ${borderColor};`;
+            card.innerHTML = `
+                <div style="font-weight: 700; color: ${titleColor}; margin-bottom: 0.25rem;">${rec.title}</div>
+                <div style="font-size: 0.8rem; color: #4b5563; margin-bottom: 0.5rem;">${rec.reason}</div>
+                <div style="font-size: 0.75rem; background: #ffffffa0; padding: 0.5rem; border-radius: 4px; border-left: 3px solid ${titleColor};">💡 ${rec.suggestion}</div>
+            `;
+            cardsList.appendChild(card);
+        });
+
+        // Logistics
+        logisticsBox.style.background = result.logistics.safe_to_travel ? '#f0fdf4' : '#fef2f2';
+        logisticsBox.style.color = result.logistics.safe_to_travel ? '#166534' : '#991b1b';
+        logisticsBox.style.border = `1px solid ${result.logistics.safe_to_travel ? '#bbf7d0' : '#fecaca'}`;
+        logisticsBox.innerHTML = `
+            <strong>Status:</strong> ${result.logistics.safe_to_travel ? '✓ Clear for Transport' : '⚠️ Travel Warning'}<br>
+            <p style="margin-top: 0.25rem;">${result.logistics.advice}</p>
+        `;
+
+        // Update Summary Card
+        document.getElementById('result-card').style.display = 'flex';
+        document.getElementById('result-value').textContent = 'ADVISORY READY';
+        document.getElementById('result-status').textContent = 'Climate-Smart Agri Intelligence';
+        document.getElementById('result-details').textContent = `Generated ${result.recommendations.length} recommendations based on ${result.weather.current_rainfall_mm}mm live rainfall and ${formData.get('drought_prob')}% drought probability.`;
+
+    } catch (err) {
+        showError('Failed to generate advisory');
+    } finally {
+        btn.textContent = 'Generate Advisory Report';
+        btn.disabled = false;
+    }
+});
+
+// NEW: Phase 8 - Satellite Farm Scan logic
+document.getElementById('scan-farm-health').addEventListener('click', async () => {
+    const mapDiv = document.getElementById('map');
+    const latInp = document.getElementById('farm-lat-hidden');
+    const lonInp = document.getElementById('farm-lon-hidden');
+
+    // Quadruple-check for coordinates (Local -> Window -> DOM Dataset -> Hidden Inputs)
+    if (!startPoint) {
+        if (window.selectedFarmPoint) {
+            startPoint = window.selectedFarmPoint;
+        } else if (mapDiv.dataset.farmLat) {
+            startPoint = {
+                lat: parseFloat(mapDiv.dataset.farmLat),
+                lng: parseFloat(mapDiv.dataset.farmLon)
+            };
+        } else if (latInp && latInp.value) {
+            startPoint = {
+                lat: parseFloat(latInp.value),
+                lng: parseFloat(lonInp.value)
+            };
+        }
+    }
+
+    if (!startPoint) {
+        showError('📍 Please click on your farm on the map first to set the scan center.');
+        document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
+        return;
+    }
+
+    const btn = document.getElementById('scan-farm-health');
+    const legend = document.getElementById('ndvi-legend');
+    btn.textContent = '🛰️ Running AI Spectral Analysis...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE}/farm_health_scan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                start_lat: startPoint.lat,
+                start_lon: startPoint.lng,
+                end_lat: 0, end_lon: 0 // placeholders
+            })
+        });
+        const data = await res.json();
+
+        renderPrecisionFarmHealth(data.grid);
+        legend.style.display = 'block';
+
+        document.getElementById('result-card').style.display = 'flex';
+        document.getElementById('result-value').textContent = 'SCAN COMPLETE';
+        document.getElementById('result-status').textContent = 'Precision NDVI Health Map Active';
+        document.getElementById('result-details').textContent = `Satellite scan identified crop health variance across a 1km plot. Green zones show optimal vigor; Yellow/Red zones indicate moisture stress or potential pest activity.`;
+
+    } catch (err) {
+        showError('Satellite scan failed');
+    } finally {
+        btn.textContent = 'Scan Farm Health (Precision UI)';
+        btn.disabled = false;
+    }
+});
+
+function renderPrecisionFarmHealth(grid) {
+    precisionFarmLayer.clearLayers();
+    const cellSize = 0.001; // High res
+
+    grid.forEach(cell => {
+        const bounds = [
+            [cell.lat - cellSize / 2, cell.lon - cellSize / 2],
+            [cell.lat + cellSize / 2, cell.lon + cellSize / 2]
+        ];
+
+        // NDVI Color Map synced with backend: 
+        // >0.75 Green, >0.55 Yellow, >0.35 Orange, <=0.35 Red
+        const v = cell.ndvi;
+        const color = v > 0.75 ? '#22c55e' : v > 0.55 ? '#facc15' : v > 0.35 ? '#f97316' : '#ef4444';
+
+        L.rectangle(bounds, {
+            color: color,
+            weight: 0.5,
+            fillOpacity: 0.6,
+            fillColor: color
+        }).bindPopup(`
+            <div style="font-family: 'Inter', sans-serif;">
+                <strong>${cell.status}</strong><br>
+                NDVI: ${v}<br>
+                <div style="margin-top: 5px; padding: 5px; background: #f8fafc; border-left: 3px solid ${color}; font-size: 0.8rem;">
+                    📢 <strong>Farmer Advice:</strong><br>${cell.advice}
+                </div>
+            </div>
+        `).addTo(precisionFarmLayer);
+    });
+
+    precisionFarmLayer.addTo(map);
+    map.fitBounds(precisionFarmLayer.getBounds());
+}
+
 document.getElementById('grid-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button');
@@ -425,6 +630,7 @@ function displayResult(type, result) {
 function showError(msg) {
     document.getElementById('result-status').textContent = msg;
     document.getElementById('result-value').textContent = 'Error';
+    document.getElementById('result-card').style.display = 'flex';
 }
 
 // 4. DATA LOADING
