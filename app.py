@@ -87,33 +87,28 @@ def _compute_prediction_interval(model, features_df, model_type="regression",
     # Regression: try tree-based variance estimation
     tree_preds = []
 
-    # XGBoost: get individual tree predictions via iteration
+    # Tree-based models: use individual tree predictions for variance estimation
     try:
-        import xgboost as xgb
-        if isinstance(estimator, (xgb.XGBRegressor, xgb.XGBClassifier)):
-            n_trees = estimator.n_estimators
-            n_sample = min(n_trees, n_trees_sample)
-            # Use different ntree_limit slices for variance
-            for i in range(max(1, n_trees - n_sample), n_trees + 1, max(1, n_sample // 10)):
-                pred_i = float(estimator.predict(
-                    transformed_df if not hasattr(model, 'named_steps') else features_df,
-                    iteration_range=(0, i)
-                )[0])
-                tree_preds.append(pred_i)
+        from sklearn.ensemble import (
+            RandomForestRegressor, RandomForestClassifier,
+            GradientBoostingRegressor, GradientBoostingClassifier
+        )
+        if isinstance(estimator, (RandomForestRegressor, RandomForestClassifier)):
+            for tree in estimator.estimators_[:n_trees_sample]:
+                tree_preds.append(float(tree.predict(
+                    transformed_df.values if hasattr(transformed_df, 'values') else transformed_df
+                )[0]))
+        elif isinstance(estimator, (GradientBoostingRegressor, GradientBoostingClassifier)):
+            # Use staged_predict for GradientBoosting variance estimation
+            staged = list(estimator.staged_predict(
+                transformed_df.values if hasattr(transformed_df, 'values') else transformed_df
+            ))
+            n_stages = len(staged)
+            step = max(1, n_stages // n_trees_sample)
+            for i in range(0, n_stages, step):
+                tree_preds.append(float(staged[i][0]))
     except Exception:
         pass
-
-    # Random Forest: use individual tree predictions
-    if not tree_preds:
-        try:
-            from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-            if isinstance(estimator, RandomForestRegressor):
-                for tree in estimator.estimators_[:n_trees_sample]:
-                    tree_preds.append(float(tree.predict(
-                        transformed_df.values if hasattr(transformed_df, 'values') else transformed_df
-                    )[0]))
-        except Exception:
-            pass
 
     if len(tree_preds) >= 5:
         std = float(np.std(tree_preds))
@@ -155,9 +150,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 def safe_load(path, name):
     full_path = os.path.join(BASE_DIR, path)
     if os.path.exists(full_path):
-        print(f"✓ Loaded: {name}")
+        print(f"[OK] Loaded: {name}")
         return joblib.load(full_path)
-    print(f"✗ Missing: {name} at {full_path}")
+    print(f"[MISSING] {name} at {full_path}")
     return None
 
 # Load all models and components
@@ -180,7 +175,7 @@ cached_spatial_features = {}
 
 def preload_infrastructure():
     global cached_spatial_features
-    print("⏳ Pre-loading urban infrastructure data (KML)...")
+    print("[INFO] Pre-loading urban infrastructure data (KML)...")
     kml_dir = os.path.join(BASE_DIR, "kml_files")
     kml_mappings = {
         'nalas': 'Hyd_Nalas.kml',
@@ -197,7 +192,7 @@ def preload_infrastructure():
             temp_rg.load_kml_features(path, feature)
     
     cached_spatial_features = temp_rg.spatial_features
-    print(f"✅ Pre-loaded {len(cached_spatial_features)} infrastructure layers.")
+    print(f"[OK] Pre-loaded {len(cached_spatial_features)} infrastructure layers.")
 
 # Preload on module load
 preload_infrastructure()
