@@ -109,6 +109,38 @@ class WeatherService:
         except Exception as e:
             return {"error": str(e), "aqi": 45, "status": "Simulated"} # Fallback
 
+    def get_live_conditions(self):
+        """
+        Fetches current temperature and humidity from Open-Meteo with 60s cache.
+        Used by SmartFeatureEngine for heatwave auto-computation.
+        """
+        cached = self._get_cached('conditions')
+        if cached:
+            return cached
+
+        params = {
+            "latitude": self.lat,
+            "longitude": self.lon,
+            "current": ["temperature_2m", "relative_humidity_2m", "precipitation"],
+            "timezone": "auto"
+        }
+        try:
+            response = requests.get(self.base_url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            current = data.get('current', {})
+            result = {
+                "temperature": current.get("temperature_2m", 30.0),
+                "humidity": current.get("relative_humidity_2m", 50.0),
+                "precipitation": current.get("precipitation", 0.0),
+                "status": "success"
+            }
+            self._set_cached('conditions', result)
+            return result
+        except Exception as e:
+            return {"temperature": 30.0, "humidity": 50.0, "precipitation": 0.0, "status": "error"}
+
+
 if __name__ == "__main__":
     ws = WeatherService()
     print(ws.get_live_rainfall())

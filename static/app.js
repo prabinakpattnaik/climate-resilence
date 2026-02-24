@@ -50,6 +50,92 @@ let isReportingFlooding = false;
 let selectedFarmPoint = null;
 let selectedUrbanPoint = null;
 
+// Citizen / Expert mode state per form
+const formModes = {
+    rainfall: 'citizen',
+    drought: 'citizen',
+    heatwave: 'citizen',
+    crop: 'citizen'
+};
+
+// Mode toggle click handlers
+document.querySelectorAll('.mode-toggle .mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const formName = btn.dataset.form;
+        const mode = btn.dataset.mode;
+        if (!formName || !mode) return;
+
+        formModes[formName] = mode;
+
+        // Update toggle button active states
+        const toggle = btn.closest('.mode-toggle');
+        toggle.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Swap visible input sections
+        const citizenDiv = document.getElementById(`${formName}-citizen-inputs`);
+        const expertDiv = document.getElementById(`${formName}-expert-inputs`);
+        if (citizenDiv && expertDiv) {
+            citizenDiv.style.display = mode === 'citizen' ? 'block' : 'none';
+            expertDiv.style.display = mode === 'expert' ? 'block' : 'none';
+        }
+
+        // Hide auto-features panel when switching modes
+        const autoPanel = document.getElementById(`${formName}-auto-features`);
+        if (autoPanel) autoPanel.style.display = 'none';
+    });
+});
+
+// Display auto-computed features in the transparency panel
+function showAutoFeatures(formName, features) {
+    const panel = document.getElementById(`${formName}-auto-features`);
+    if (!panel || !features) return;
+
+    const grid = panel.querySelector('.features-grid');
+    const labelMap = {
+        lag_1: 'Prev Month Rain (mm)',
+        lag_2: '2 Months Ago (mm)',
+        lag_3: '3 Months Ago (mm)',
+        lag_12: 'Same Month Last Year (mm)',
+        rolling_3: '3-Month Rolling Avg (mm)',
+        month_sin: 'Month Sine',
+        month_cos: 'Month Cosine',
+        month: 'Target Month',
+        rolling_3mo_avg: '3-Month Avg Rain (mm)',
+        rolling_6mo_avg: '6-Month Avg Rain (mm)',
+        deficit_pct: 'Rainfall Deficit (%)',
+        prev_year_drought: 'Last Year Drought',
+        monsoon_strength: 'Monsoon Strength',
+        spi_3: 'SPI-3 (Drought Index)',
+        spi_6: 'SPI-6 (Drought Index)',
+        consecutive_dry_months: 'Consecutive Dry Months',
+        max_temp_lag1: 'Yesterday Max Temp (°C)',
+        max_temp_lag2: '2 Days Ago Max (°C)',
+        max_temp_lag3: '3 Days Ago Max (°C)',
+        temp_max_7day_avg: '7-Day Avg Max (°C)',
+        humidity: 'Live Humidity (%)',
+        diurnal_range_lag1: 'Diurnal Range (°C)',
+        temp_min_lag1: 'Yesterday Min Temp (°C)',
+        temp_min_7day_avg: '7-Day Avg Min (°C)',
+        precip_7day_sum: '7-Day Precip Sum (mm)',
+        heat_streak: 'Heat Streak (days)',
+        rainfall: 'Avg Rainfall (mm)',
+        rainfall_anomaly: 'Rainfall Anomaly (%)',
+        fertilizer_per_area: 'Fertilizer (kg/ha)',
+        pesticide_per_area: 'Pesticide (kg/ha)'
+    };
+
+    grid.innerHTML = Object.entries(features)
+        .map(([key, val]) => `
+            <div class="feature-item">
+                <div class="feature-label">${labelMap[key] || key}</div>
+                <div class="feature-value">${typeof val === 'number' ? val.toFixed(2) : val}</div>
+            </div>
+        `).join('');
+
+    panel.style.display = 'block';
+}
+
 async function fetchTourismSafety() {
     const list = document.getElementById('tourism-landmark-list');
     if (!list) return;
@@ -408,15 +494,24 @@ document.querySelectorAll('.scroll-to-map').forEach(btn => {
 document.getElementById('rainfall-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    const data = {
-        month: parseInt(formData.get('month')) || 6,
-        lag_1: parseFloat(formData.get('lag_1')) || 0,
-        lag_2: parseFloat(formData.get('lag_2')) || 0,
-        lag_3: parseFloat(formData.get('lag_3')) || 0,
-        lag_12: parseFloat(formData.get('lag_12')) || 0
-    };
+    const isCitizen = formModes.rainfall === 'citizen';
+
     try {
-        const res = await fetch(`${API_BASE}/predict_rainfall`, {
+        let url, data;
+        if (isCitizen) {
+            url = `${API_BASE}/smart/predict_rainfall`;
+            data = { month: parseInt(formData.get('smart_month')) || 6 };
+        } else {
+            url = `${API_BASE}/predict_rainfall`;
+            data = {
+                month: parseInt(formData.get('month')) || 6,
+                lag_1: parseFloat(formData.get('lag_1')) || 0,
+                lag_2: parseFloat(formData.get('lag_2')) || 0,
+                lag_3: parseFloat(formData.get('lag_3')) || 0,
+                lag_12: parseFloat(formData.get('lag_12')) || 0
+            };
+        }
+        const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
@@ -424,6 +519,9 @@ document.getElementById('rainfall-form').addEventListener('submit', async (e) =>
         if (!res.ok) throw new Error(`API Error: ${res.status}`);
         const result = await res.json();
         displayResult('rainfall', result);
+        if (isCitizen && result.auto_computed_features) {
+            showAutoFeatures('rainfall', result.auto_computed_features);
+        }
     } catch (err) {
         showError('Failed to get prediction');
     }
@@ -432,21 +530,33 @@ document.getElementById('rainfall-form').addEventListener('submit', async (e) =>
 document.getElementById('drought-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    const data = {
-        rolling_3mo_avg: parseFloat(formData.get('rolling_3mo')) || 0,
-        rolling_6mo_avg: parseFloat(formData.get('rolling_6mo')) || 0,
-        deficit_pct: parseFloat(formData.get('deficit_pct')) || 0,
-        prev_year_drought: parseFloat(formData.get('prev_year_drought')) || 0,
-        monsoon_strength: parseFloat(formData.get('monsoon_strength')) || 0
-    };
+    const isCitizen = formModes.drought === 'citizen';
+
     try {
-        const res = await fetch(`${API_BASE}/predict_drought`, {
+        let url, data;
+        if (isCitizen) {
+            url = `${API_BASE}/smart/predict_drought`;
+            data = { month: parseInt(formData.get('smart_drought_month')) || 5 };
+        } else {
+            url = `${API_BASE}/predict_drought`;
+            data = {
+                rolling_3mo_avg: parseFloat(formData.get('rolling_3mo')) || 0,
+                rolling_6mo_avg: parseFloat(formData.get('rolling_6mo')) || 0,
+                deficit_pct: parseFloat(formData.get('deficit_pct')) || 0,
+                prev_year_drought: parseFloat(formData.get('prev_year_drought')) || 0,
+                monsoon_strength: parseFloat(formData.get('monsoon_strength')) || 0
+            };
+        }
+        const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
         const result = await res.json();
         displayResult('drought', result);
+        if (isCitizen && result.auto_computed_features) {
+            showAutoFeatures('drought', result.auto_computed_features);
+        }
     } catch (err) {
         showError('Failed to get prediction');
     }
@@ -455,21 +565,33 @@ document.getElementById('drought-form').addEventListener('submit', async (e) => 
 document.getElementById('heatwave-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    const data = {
-        max_temp_lag1: parseFloat(formData.get('max_temp_lag1')) || 0,
-        max_temp_lag2: parseFloat(formData.get('max_temp_lag2')) || 0,
-        max_temp_lag3: parseFloat(formData.get('max_temp_lag3')) || 0,
-        humidity: parseFloat(formData.get('humidity')) || 0,
-        month: parseInt(formData.get('month')) || 5
-    };
+    const isCitizen = formModes.heatwave === 'citizen';
+
     try {
-        const res = await fetch(`${API_BASE}/predict_heatwave`, {
+        let url, data;
+        if (isCitizen) {
+            url = `${API_BASE}/smart/predict_heatwave`;
+            data = { month: parseInt(formData.get('smart_heatwave_month')) || 5 };
+        } else {
+            url = `${API_BASE}/predict_heatwave`;
+            data = {
+                max_temp_lag1: parseFloat(formData.get('max_temp_lag1')) || 0,
+                max_temp_lag2: parseFloat(formData.get('max_temp_lag2')) || 0,
+                max_temp_lag3: parseFloat(formData.get('max_temp_lag3')) || 0,
+                humidity: parseFloat(formData.get('humidity')) || 0,
+                month: parseInt(formData.get('month')) || 5
+            };
+        }
+        const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
         const result = await res.json();
         displayResult('heatwave', result);
+        if (isCitizen && result.auto_computed_features) {
+            showAutoFeatures('heatwave', result.auto_computed_features);
+        }
     } catch (err) {
         showError('Failed to get prediction');
     }
@@ -478,23 +600,39 @@ document.getElementById('heatwave-form').addEventListener('submit', async (e) =>
 document.getElementById('crop-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    const data = {
-        crop_type: formData.get('crop_type'),
-        state: formData.get('state'),
-        season: formData.get('season'),
-        rainfall: parseFloat(formData.get('rainfall')) || 0,
-        rainfall_anomaly: parseFloat(formData.get('rainfall_anomaly')) || 0,
-        fertilizer_per_area: parseFloat(formData.get('fertilizer_per_area')) || 0,
-        pesticide_per_area: parseFloat(formData.get('pesticide_per_area')) || 0
-    };
+    const isCitizen = formModes.crop === 'citizen';
+
     try {
-        const res = await fetch(`${API_BASE}/predict_crop_impact`, {
+        let url, data;
+        if (isCitizen) {
+            url = `${API_BASE}/smart/predict_crop_impact`;
+            data = {
+                crop_type: formData.get('smart_crop_type'),
+                state: formData.get('smart_state') || 'Telangana',
+                season: formData.get('smart_season') || 'Kharif'
+            };
+        } else {
+            url = `${API_BASE}/predict_crop_impact`;
+            data = {
+                crop_type: formData.get('crop_type'),
+                state: formData.get('state'),
+                season: formData.get('season'),
+                rainfall: parseFloat(formData.get('rainfall')) || 0,
+                rainfall_anomaly: parseFloat(formData.get('rainfall_anomaly')) || 0,
+                fertilizer_per_area: parseFloat(formData.get('fertilizer_per_area')) || 0,
+                pesticide_per_area: parseFloat(formData.get('pesticide_per_area')) || 0
+            };
+        }
+        const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
         const result = await res.json();
         displayResult('crop', result);
+        if (isCitizen && result.auto_computed_features) {
+            showAutoFeatures('crop', result.auto_computed_features);
+        }
     } catch (err) {
         showError('Failed to get prediction');
     }
@@ -883,6 +1021,18 @@ function renderSafeRoute(path) {
     });
 }
 
+function formatInterval(interval, unit = '') {
+    if (!interval) return '';
+    const conf = Math.round(interval.confidence * 100);
+    return `<div class="prediction-interval">
+        <span class="interval-label">${conf}% Confidence Interval</span>
+        <span class="interval-range">${interval.lower}${unit} — ${interval.upper}${unit}</span>
+        <span class="interval-method">${interval.method === 'tree_variance' ? 'Tree ensemble variance' :
+            interval.method === 'wilson_score' ? 'Wilson score interval' :
+            interval.method === 'heuristic' ? 'Estimated range' : interval.method}</span>
+    </div>`;
+}
+
 function displayResult(type, result) {
     const card = document.getElementById('result-card');
     const valueEl = document.getElementById('result-value');
@@ -891,34 +1041,54 @@ function displayResult(type, result) {
 
     card.style.display = 'flex';
 
+    const isCitizen = result.mode === 'citizen';
+    const features = result.auto_computed_features || result.input || {};
+    const interval = result.prediction_interval || null;
+
     if (type === 'rainfall') {
         const mm = result.predicted_rainfall_mm;
         valueEl.textContent = `${mm} mm`;
         statusEl.textContent = result.risk_category;
         const riskColor = mm > 200 ? 'var(--danger)' : mm < 30 ? 'var(--warning)' : 'var(--success)';
         valueEl.style.color = riskColor;
-        detailsEl.textContent = `Predicted monthly rainfall for Month ${result.input.month}. Based on lag features (${result.input.lag_1}mm, ${result.input.lag_2}mm, ${result.input.lag_3}mm).`;
+        if (isCitizen) {
+            detailsEl.innerHTML = `Predicted monthly rainfall for Month ${features.month}. AI auto-derived from 121 years of IMD historical data.${formatInterval(interval, ' mm')}`;
+        } else {
+            detailsEl.innerHTML = `Predicted monthly rainfall for Month ${features.month}. Based on lag features (${features.lag_1}mm, ${features.lag_2}mm, ${features.lag_3}mm).${formatInterval(interval, ' mm')}`;
+        }
     } else if (type === 'drought') {
         const score = result.drought_score;
         valueEl.textContent = `${score}`;
         statusEl.textContent = result.category;
         const riskColor = score > 60 ? 'var(--danger)' : score > 30 ? 'var(--warning)' : 'var(--success)';
         valueEl.style.color = riskColor;
-        detailsEl.textContent = `Drought severity index (0-100). ${result.category} detected based on rainfall deficit of ${result.input.deficit_pct}% and monsoon strength ${result.input.monsoon_strength}.`;
+        if (isCitizen) {
+            detailsEl.innerHTML = `Drought severity index (0-100). ${result.category} detected. AI auto-assessed using SPI drought indices + historical patterns.${formatInterval(interval)}`;
+        } else {
+            detailsEl.innerHTML = `Drought severity index (0-100). ${result.category} detected based on rainfall deficit of ${features.deficit_pct}% and monsoon strength ${features.monsoon_strength}.${formatInterval(interval)}`;
+        }
     } else if (type === 'heatwave') {
         const prob = (result.heatwave_probability * 100).toFixed(1);
         valueEl.textContent = `${prob}%`;
         statusEl.textContent = result.is_heatwave ? 'HEATWAVE ALERT' : 'No Heatwave Detected';
         const riskColor = result.is_heatwave ? 'var(--danger)' : 'var(--success)';
         valueEl.style.color = riskColor;
-        detailsEl.textContent = `Probability of heatwave conditions. Yesterday's max: ${result.input.max_temp_lag1}°C, Humidity: ${result.input.humidity}%. ${result.is_heatwave ? 'Take precautions - stay hydrated and avoid prolonged sun exposure.' : 'Conditions are within normal thresholds.'}`;
+        if (isCitizen) {
+            detailsEl.innerHTML = `Probability of heatwave conditions. AI (XGBoost + SMOTE) analyzed temperature, humidity, heat streaks & precipitation patterns. ${result.is_heatwave ? 'Take precautions - stay hydrated and avoid prolonged sun exposure.' : 'Conditions are within normal thresholds.'}${formatInterval(interval)}`;
+        } else {
+            detailsEl.innerHTML = `Probability of heatwave conditions. Yesterday's max: ${features.max_temp_lag1}°C, Humidity: ${features.humidity}%. ${result.is_heatwave ? 'Take precautions - stay hydrated and avoid prolonged sun exposure.' : 'Conditions are within normal thresholds.'}${formatInterval(interval)}`;
+        }
     } else if (type === 'crop') {
         const dev = result.yield_deviation_pct;
         valueEl.textContent = `${dev}%`;
         statusEl.textContent = result.impact_category;
         const riskColor = dev > 30 ? 'var(--danger)' : dev > 15 ? 'var(--warning)' : 'var(--success)';
         valueEl.style.color = riskColor;
-        detailsEl.textContent = `Predicted yield deviation from historical average. ${result.impact_category} for the selected crop with ${result.input?.rainfall || 0}mm projected rainfall.`;
+        if (isCitizen) {
+            detailsEl.innerHTML = `Predicted yield deviation. ${result.impact_category}. AI auto-computed rainfall, fertilizer & pesticide data from historical records.${formatInterval(interval, '%')}`;
+        } else {
+            detailsEl.innerHTML = `Predicted yield deviation from historical average. ${result.impact_category} for the selected crop with ${features.rainfall || 0}mm projected rainfall.${formatInterval(interval, '%')}`;
+        }
     } else {
         valueEl.textContent = '--';
         statusEl.textContent = 'Result';
@@ -1082,6 +1252,7 @@ loadKmlList();
 loadSummary();
 loadEmergencyResources();
 loadHistoricalChart();
+loadImpactShowcase();
 
 // 7. HISTORICAL RAINFALL TREND CHART (Chart.js)
 let rainfallChart = null;
@@ -1153,6 +1324,94 @@ async function loadHistoricalChart() {
         });
     } catch (err) {
         console.error('Failed to load historical chart', err);
+    }
+}
+
+// 8. IMPACT SHOWCASE
+async function loadImpactShowcase() {
+    const container = document.getElementById('impact-cards');
+    const sourcesEl = document.getElementById('showcase-data-sources');
+    if (!container) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/impact_showcase`);
+        if (!res.ok) throw new Error(`API Error: ${res.status}`);
+        const data = await res.json();
+
+        container.innerHTML = '';
+
+        const iconMap = {
+            farmer: { emoji: '\uD83C\uDF3E', cls: 'farmer' },
+            heatwave: { emoji: '\uD83D\uDD25', cls: 'heatwave' },
+            drought: { emoji: '\uD83D\uDCA7', cls: 'drought' }
+        };
+
+        data.scenarios.forEach(scenario => {
+            const iconInfo = iconMap[scenario.icon] || { emoji: '\uD83D\uDCCA', cls: '' };
+
+            const card = document.createElement('div');
+            card.className = 'impact-card';
+            card.innerHTML = `
+                <div class="impact-card-header">
+                    <div class="impact-icon ${iconInfo.cls}">${iconInfo.emoji}</div>
+                    <div>
+                        <div class="impact-card-title">${scenario.title}</div>
+                        <div class="impact-card-subtitle">${scenario.subtitle}</div>
+                    </div>
+                </div>
+
+                <div class="impact-comparison">
+                    <div class="impact-before">
+                        <span class="impact-before-label">${scenario.without_ai.label}</span>
+                        <div class="impact-metric">${scenario.without_ai.metric_value}</div>
+                        <div>${scenario.without_ai.metric_label}</div>
+                    </div>
+                    <div class="impact-after">
+                        <span class="impact-after-label">${scenario.with_ai.label}</span>
+                        <div class="impact-metric">${scenario.with_ai.metric_value}</div>
+                        <div>${scenario.with_ai.metric_label}</div>
+                    </div>
+                </div>
+
+                <div class="impact-big-metric">
+                    <div class="impact-big-value">${scenario.big_metric}</div>
+                    <div class="impact-big-label">${scenario.big_metric_label}</div>
+                </div>
+
+                <div class="impact-savings">${scenario.savings}</div>
+                <div class="impact-explanation">${scenario.explanation}</div>
+
+                <button class="impact-try-btn" data-model="${scenario.try_model}">
+                    Try it yourself \u2192
+                </button>
+            `;
+            container.appendChild(card);
+        });
+
+        // Bind "Try it yourself" buttons to switch to the relevant model form
+        container.querySelectorAll('.impact-try-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const model = btn.dataset.model;
+                const modelBtn = document.querySelector(`.model-btn[data-model="${model}"]`);
+                if (modelBtn) {
+                    modelBtn.click();
+                    document.querySelector('.input-section').scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Update data sources footer
+        if (sourcesEl && data.data_sources) {
+            const sources = Object.values(data.data_sources).join(' | ');
+            sourcesEl.textContent = `Data: ${sources}`;
+        }
+
+    } catch (err) {
+        console.error('Impact showcase failed to load:', err);
+        container.innerHTML = '<div class="impact-loading">Impact scenarios unavailable</div>';
     }
 }
 

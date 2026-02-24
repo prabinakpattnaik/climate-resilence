@@ -1,5 +1,6 @@
 ============================================================
 EXPERIMENT 1: RAINFALL PREDICTION (Regression)
+  v2: Added XGBoost candidate
 ============================================================
 
 [Data] Loading and splitting data...
@@ -7,17 +8,20 @@ EXPERIMENT 1: RAINFALL PREDICTION (Regression)
 
 [Experiment] Training candidate models...
    > Training Linear Regression...
-     R2: 0.5484 | RMSE: 60.46
+     R2: 0.5489 | RMSE: 60.43 | MAE: 38.07
    > Training Random Forest...
      Best Params: {'max_depth': 10, 'min_samples_leaf': 5, 'n_estimators': 100}
-     R2: 0.5676 | RMSE: 59.16
+     R2: 0.5667 | RMSE: 59.22 | MAE: 35.89
    > Training Gradient Boosting...
      Best Params: {'learning_rate': 0.01, 'max_depth': 3, 'n_estimators': 200}
-     R2: 0.5338 | RMSE: 61.43
+     R2: 0.5339 | RMSE: 61.42 | MAE: 38.70
+   > Training XGBoost...
+     Best Params: {'colsample_bytree': 0.8, 'learning_rate': 0.01, 'max_depth': 3, 'n_estimators': 300, 'reg_alpha': 0.1, 'reg_lambda': 2, 'subsample': 1.0}
+     R2: 0.5587 | RMSE: 59.77 | MAE: 37.23
 
 ============================================================
-WINNER: Random Forest (R2: 0.5676)
+WINNER: Random Forest (R2: 0.5667)
 ============================================================
-Plots saved to C:\Hemanth\ConnectBeacon\Climate_AI\static\plots
-Report saved to C:\Hemanth\ConnectBeacon\Climate_AI\models\rainfall
-Model saved to C:\Hemanth\ConnectBeacon\Climate_AI\models\rainfall\best_model.joblib
+Plots saved to C:\Users\prabina\Code\resilience-grid-main\.claude\worktrees\trusting-wu\static\plots
+Report saved to C:\Users\prabina\Code\resilience-grid-main\.claude\worktrees\trusting-wu\models\rainfall
+Model saved to C:\Users\prabina\Code\resilience-grid-main\.claude\worktrees\trusting-wu\models\rainfall\best_model.joblib
