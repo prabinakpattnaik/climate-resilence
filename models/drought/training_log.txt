@@ -1,23 +1,28 @@
 ============================================================
 EXPERIMENT 2: DROUGHT PREDICTION (Regression)
+  v2: Added XGBoost + SPI features
 ============================================================
 
 [Data] Loading and splitting data...
-   Train shape: (1152, 5), Test shape: (288, 5)
+   Train shape: (1190, 10), Test shape: (298, 10)
+   Features: ['rolling_3mo', 'rolling_6mo', 'deficit_pct', 'prev_year_drought', 'monsoon_strength', 'spi_3', 'spi_6', 'consecutive_dry_months', 'mei_value', 'mei_lag3']
 
 [Experiment] Training candidate models...
    > Training Ridge Regression...
      Best Params: {'regressor__alpha': 10.0}
-     R2: 0.1892 | RMSE: 37.07
+     R2: 0.1395 | RMSE: 38.13 | MAE: 32.82
    > Training SVR...
-     Best Params: {'regressor__C': 1, 'regressor__kernel': 'rbf'}
-     R2: 0.1711 | RMSE: 37.49
+     Best Params: {'regressor__C': 0.1, 'regressor__kernel': 'linear'}
+     R2: 0.0845 | RMSE: 39.33 | MAE: 33.25
    > Training Random Forest...
      Best Params: {'regressor__max_depth': 5, 'regressor__n_estimators': 100}
-     R2: 0.1914 | RMSE: 37.02
+     R2: 0.1218 | RMSE: 38.52 | MAE: 33.58
+   > Training XGBoost...
+     Best Params: {'colsample_bytree': 0.8, 'learning_rate': 0.01, 'max_depth': 5, 'n_estimators': 200, 'reg_alpha': 0.1, 'reg_lambda': 2, 'subsample': 0.8}
+     R2: 0.1263 | RMSE: 38.42 | MAE: 34.01
 
 ============================================================
-WINNER: Random Forest (R2: 0.1914)
+WINNER: Ridge Regression (R2: 0.1395)
 ============================================================
 Plots saved to C:\Users\prabina\Code\resilience-grid-main\.claude\worktrees\trusting-wu\static\plots
 Report saved to C:\Users\prabina\Code\resilience-grid-main\.claude\worktrees\trusting-wu\models\drought

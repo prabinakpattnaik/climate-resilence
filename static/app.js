@@ -106,11 +106,30 @@ function showAutoFeatures(formName, features) {
         deficit_pct: 'Rainfall Deficit (%)',
         prev_year_drought: 'Last Year Drought',
         monsoon_strength: 'Monsoon Strength',
+        spi_3: 'SPI-3 (Drought Index)',
+        spi_6: 'SPI-6 (Drought Index)',
+        consecutive_dry_months: 'Consecutive Dry Months',
+        mei_value: 'ENSO Index (El Nino/La Nina)',
+        mei_lag3: 'ENSO Index (3-month lag)',
         max_temp_lag1: 'Yesterday Max Temp (°C)',
         max_temp_lag2: '2 Days Ago Max (°C)',
         max_temp_lag3: '3 Days Ago Max (°C)',
         temp_max_7day_avg: '7-Day Avg Max (°C)',
         humidity: 'Live Humidity (%)',
+        diurnal_range_lag1: 'Diurnal Range (°C)',
+        temp_min_lag1: 'Yesterday Min Temp (°C)',
+        temp_min_7day_avg: '7-Day Avg Min (°C)',
+        precip_7day_sum: '7-Day Precip Sum (mm)',
+        heat_streak: 'Heat Streak (days)',
+        wind_speed_lag1: 'Wind Speed (km/h)',
+        wind_gusts_lag1: 'Wind Gusts (km/h)',
+        solar_rad_lag1: 'Solar Radiation (MJ/m²)',
+        solar_rad_3day_avg: '3-Day Avg Solar (MJ/m²)',
+        et0_lag1: 'Evapotranspiration (mm)',
+        et0_7day_avg: '7-Day Avg ET₀ (mm)',
+        soil_moisture_lag1: 'Soil Moisture (m³/m³)',
+        pressure_lag1: 'Sea Level Pressure (hPa)',
+        pressure_change_1d: 'Pressure Change (hPa)',
         rainfall: 'Avg Rainfall (mm)',
         rainfall_anomaly: 'Rainfall Anomaly (%)',
         fertilizer_per_area: 'Fertilizer (kg/ha)',
@@ -1013,6 +1032,18 @@ function renderSafeRoute(path) {
     });
 }
 
+function formatInterval(interval, unit = '') {
+    if (!interval) return '';
+    const conf = Math.round(interval.confidence * 100);
+    return `<div class="prediction-interval">
+        <span class="interval-label">${conf}% Confidence Interval</span>
+        <span class="interval-range">${interval.lower}${unit} — ${interval.upper}${unit}</span>
+        <span class="interval-method">${interval.method === 'tree_variance' ? 'Tree ensemble variance' :
+            interval.method === 'wilson_score' ? 'Wilson score interval' :
+            interval.method === 'heuristic' ? 'Estimated range' : interval.method}</span>
+    </div>`;
+}
+
 function displayResult(type, result) {
     const card = document.getElementById('result-card');
     const valueEl = document.getElementById('result-value');
@@ -1023,6 +1054,7 @@ function displayResult(type, result) {
 
     const isCitizen = result.mode === 'citizen';
     const features = result.auto_computed_features || result.input || {};
+    const interval = result.prediction_interval || null;
 
     if (type === 'rainfall') {
         const mm = result.predicted_rainfall_mm;
@@ -1031,9 +1063,9 @@ function displayResult(type, result) {
         const riskColor = mm > 200 ? 'var(--danger)' : mm < 30 ? 'var(--warning)' : 'var(--success)';
         valueEl.style.color = riskColor;
         if (isCitizen) {
-            detailsEl.textContent = `Predicted monthly rainfall for Month ${features.month}. AI auto-derived from 121 years of IMD historical data.`;
+            detailsEl.innerHTML = `Predicted monthly rainfall for Month ${features.month}. AI auto-derived from 121 years of IMD historical data.${formatInterval(interval, ' mm')}`;
         } else {
-            detailsEl.textContent = `Predicted monthly rainfall for Month ${features.month}. Based on lag features (${features.lag_1}mm, ${features.lag_2}mm, ${features.lag_3}mm).`;
+            detailsEl.innerHTML = `Predicted monthly rainfall for Month ${features.month}. Based on lag features (${features.lag_1}mm, ${features.lag_2}mm, ${features.lag_3}mm).${formatInterval(interval, ' mm')}`;
         }
     } else if (type === 'drought') {
         const score = result.drought_score;
@@ -1042,9 +1074,9 @@ function displayResult(type, result) {
         const riskColor = score > 60 ? 'var(--danger)' : score > 30 ? 'var(--warning)' : 'var(--success)';
         valueEl.style.color = riskColor;
         if (isCitizen) {
-            detailsEl.textContent = `Drought severity index (0-100). ${result.category} detected. AI auto-assessed from historical rainfall patterns.`;
+            detailsEl.innerHTML = `Drought severity index (0-100). ${result.category} detected. AI auto-assessed using SPI drought indices + historical patterns.${formatInterval(interval)}`;
         } else {
-            detailsEl.textContent = `Drought severity index (0-100). ${result.category} detected based on rainfall deficit of ${features.deficit_pct}% and monsoon strength ${features.monsoon_strength}.`;
+            detailsEl.innerHTML = `Drought severity index (0-100). ${result.category} detected based on rainfall deficit of ${features.deficit_pct}% and monsoon strength ${features.monsoon_strength}.${formatInterval(interval)}`;
         }
     } else if (type === 'heatwave') {
         const prob = (result.heatwave_probability * 100).toFixed(1);
@@ -1053,9 +1085,9 @@ function displayResult(type, result) {
         const riskColor = result.is_heatwave ? 'var(--danger)' : 'var(--success)';
         valueEl.style.color = riskColor;
         if (isCitizen) {
-            detailsEl.textContent = `Probability of heatwave conditions. AI used recent temperature records + live humidity. ${result.is_heatwave ? 'Take precautions - stay hydrated and avoid prolonged sun exposure.' : 'Conditions are within normal thresholds.'}`;
+            detailsEl.innerHTML = `Probability of heatwave conditions. AI (XGBoost + SMOTE) analyzed temperature, humidity, heat streaks & precipitation patterns. ${result.is_heatwave ? 'Take precautions - stay hydrated and avoid prolonged sun exposure.' : 'Conditions are within normal thresholds.'}${formatInterval(interval)}`;
         } else {
-            detailsEl.textContent = `Probability of heatwave conditions. Yesterday's max: ${features.max_temp_lag1}°C, Humidity: ${features.humidity}%. ${result.is_heatwave ? 'Take precautions - stay hydrated and avoid prolonged sun exposure.' : 'Conditions are within normal thresholds.'}`;
+            detailsEl.innerHTML = `Probability of heatwave conditions. Yesterday's max: ${features.max_temp_lag1}°C, Humidity: ${features.humidity}%. ${result.is_heatwave ? 'Take precautions - stay hydrated and avoid prolonged sun exposure.' : 'Conditions are within normal thresholds.'}${formatInterval(interval)}`;
         }
     } else if (type === 'crop') {
         const dev = result.yield_deviation_pct;
@@ -1064,9 +1096,9 @@ function displayResult(type, result) {
         const riskColor = dev > 30 ? 'var(--danger)' : dev > 15 ? 'var(--warning)' : 'var(--success)';
         valueEl.style.color = riskColor;
         if (isCitizen) {
-            detailsEl.textContent = `Predicted yield deviation. ${result.impact_category}. AI auto-computed rainfall, fertilizer & pesticide data from historical records.`;
+            detailsEl.innerHTML = `Predicted yield deviation. ${result.impact_category}. AI auto-computed rainfall, fertilizer & pesticide data from historical records.${formatInterval(interval, '%')}`;
         } else {
-            detailsEl.textContent = `Predicted yield deviation from historical average. ${result.impact_category} for the selected crop with ${features.rainfall || 0}mm projected rainfall.`;
+            detailsEl.innerHTML = `Predicted yield deviation from historical average. ${result.impact_category} for the selected crop with ${features.rainfall || 0}mm projected rainfall.${formatInterval(interval, '%')}`;
         }
     } else {
         valueEl.textContent = '--';
@@ -1231,6 +1263,7 @@ loadKmlList();
 loadSummary();
 loadEmergencyResources();
 loadHistoricalChart();
+loadImpactShowcase();
 
 // 7. HISTORICAL RAINFALL TREND CHART (Chart.js)
 let rainfallChart = null;
@@ -1302,6 +1335,94 @@ async function loadHistoricalChart() {
         });
     } catch (err) {
         console.error('Failed to load historical chart', err);
+    }
+}
+
+// 8. IMPACT SHOWCASE
+async function loadImpactShowcase() {
+    const container = document.getElementById('impact-cards');
+    const sourcesEl = document.getElementById('showcase-data-sources');
+    if (!container) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/impact_showcase`);
+        if (!res.ok) throw new Error(`API Error: ${res.status}`);
+        const data = await res.json();
+
+        container.innerHTML = '';
+
+        const iconMap = {
+            farmer: { emoji: '\uD83C\uDF3E', cls: 'farmer' },
+            heatwave: { emoji: '\uD83D\uDD25', cls: 'heatwave' },
+            drought: { emoji: '\uD83D\uDCA7', cls: 'drought' }
+        };
+
+        data.scenarios.forEach(scenario => {
+            const iconInfo = iconMap[scenario.icon] || { emoji: '\uD83D\uDCCA', cls: '' };
+
+            const card = document.createElement('div');
+            card.className = 'impact-card';
+            card.innerHTML = `
+                <div class="impact-card-header">
+                    <div class="impact-icon ${iconInfo.cls}">${iconInfo.emoji}</div>
+                    <div>
+                        <div class="impact-card-title">${scenario.title}</div>
+                        <div class="impact-card-subtitle">${scenario.subtitle}</div>
+                    </div>
+                </div>
+
+                <div class="impact-comparison">
+                    <div class="impact-before">
+                        <span class="impact-before-label">${scenario.without_ai.label}</span>
+                        <div class="impact-metric">${scenario.without_ai.metric_value}</div>
+                        <div>${scenario.without_ai.metric_label}</div>
+                    </div>
+                    <div class="impact-after">
+                        <span class="impact-after-label">${scenario.with_ai.label}</span>
+                        <div class="impact-metric">${scenario.with_ai.metric_value}</div>
+                        <div>${scenario.with_ai.metric_label}</div>
+                    </div>
+                </div>
+
+                <div class="impact-big-metric">
+                    <div class="impact-big-value">${scenario.big_metric}</div>
+                    <div class="impact-big-label">${scenario.big_metric_label}</div>
+                </div>
+
+                <div class="impact-savings">${scenario.savings}</div>
+                <div class="impact-explanation">${scenario.explanation}</div>
+
+                <button class="impact-try-btn" data-model="${scenario.try_model}">
+                    Try it yourself \u2192
+                </button>
+            `;
+            container.appendChild(card);
+        });
+
+        // Bind "Try it yourself" buttons to switch to the relevant model form
+        container.querySelectorAll('.impact-try-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const model = btn.dataset.model;
+                const modelBtn = document.querySelector(`.model-btn[data-model="${model}"]`);
+                if (modelBtn) {
+                    modelBtn.click();
+                    document.querySelector('.input-section').scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Update data sources footer
+        if (sourcesEl && data.data_sources) {
+            const sources = Object.values(data.data_sources).join(' | ');
+            sourcesEl.textContent = `Data: ${sources}`;
+        }
+
+    } catch (err) {
+        console.error('Impact showcase failed to load:', err);
+        container.innerHTML = '<div class="impact-loading">Impact scenarios unavailable</div>';
     }
 }
 

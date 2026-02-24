@@ -1,23 +1,29 @@
 ============================================================
 EXPERIMENT 4: CROP YIELD IMPACT (Regression)
+  v2: Added XGBoost candidate
 ============================================================
 
 [Data] Loading and splitting data...
    Train shape: (499, 7), Test shape: (125, 7)
+   Features: ['rainfall', 'rainfall_anomaly', 'fertilizer_per_area', 'pesticide_per_area', 'crop_encoded', 'state_encoded', 'season_encoded']
 
 [Experiment] Training candidate models...
    > Training Lasso...
      Best Params: {'regressor__alpha': 0.1}
-     R2: 0.1534 | RMSE: 15.88
+     R2: 0.1534 | RMSE: 15.88 | MAE: 12.70
    > Training Decision Tree...
      Best Params: {'regressor__max_depth': 5, 'regressor__min_samples_leaf': 5}
-     R2: 0.2787 | RMSE: 14.65
+     R2: 0.2803 | RMSE: 14.64 | MAE: 10.52
    > Training Random Forest...
      Best Params: {'regressor__max_depth': 10, 'regressor__n_estimators': 100}
-     R2: 0.4396 | RMSE: 12.92
+     R2: 0.4433 | RMSE: 12.87 | MAE: 9.57
+   > Training XGBoost...
+     Best Params: {'colsample_bytree': 0.8, 'learning_rate': 0.05, 'max_depth': 3, 'n_estimators': 100, 'reg_alpha': 0, 'reg_lambda': 2, 'subsample': 1.0}
+     R2: 0.3472 | RMSE: 13.94 | MAE: 10.62
 
 ============================================================
-WINNER: Random Forest (R2: 0.4396)
+WINNER: Random Forest (R2: 0.4433)
 ============================================================
-Plots saved to C:\Hemanth\ConnectBeacon\Climate_AI\static\plots
-Report saved to C:\Hemanth\ConnectBeacon\Climate_AI\models\crop_impact
+Feature importance plot saved.
+Plots saved to C:\Users\prabina\Code\resilience-grid-main\.claude\worktrees\trusting-wu\static\plots
+Report saved to C:\Users\prabina\Code\resilience-grid-main\.claude\worktrees\trusting-wu\models\crop_impact

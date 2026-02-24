@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
+from scipy.stats import gamma as gamma_dist
 import os
 
 # Constants for data paths
@@ -10,6 +11,7 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 RAINFALL_PATH = os.path.join(DATA_DIR, "hyderabad_rainfall_data.csv")
 TEMP_PATH = os.path.join(DATA_DIR, "hyderabad_temperature.csv")
 CROP_PATH = os.path.join(DATA_DIR, "crop_yield_india.csv")
+ENSO_PATH = os.path.join(DATA_DIR, "enso_mei.csv")
 
 def load_rainfall_data():
     """
@@ -54,13 +56,97 @@ def load_rainfall_data():
     # Rolling averages
     # Fix Leakage: Must use shifted data, otherwise it includes current month!
     monthly_df['rolling_3'] = monthly_df['rainfall'].shift(1).rolling(3).mean()
-    
+
+    # NEW v3: ENSO (El Nino / La Nina) index - #1 driver of Indian monsoon variability
+    if os.path.exists(ENSO_PATH):
+        enso_df = pd.read_csv(ENSO_PATH)
+        monthly_df = monthly_df.merge(enso_df, on=['year', 'month'], how='left')
+        monthly_df['mei_value'] = monthly_df['mei_value'].fillna(0.0)
+        # 3-month lagged ENSO captures delayed monsoon impact
+        monthly_df['mei_lag3'] = monthly_df['mei_value'].shift(3).fillna(0.0)
+    else:
+        monthly_df['mei_value'] = 0.0
+        monthly_df['mei_lag3'] = 0.0
+
     monthly_df = monthly_df.dropna()
-    
-    features = ['lag_1', 'lag_2', 'lag_3', 'lag_12', 'month_sin', 'month_cos', 'rolling_3']
+
+    features = ['lag_1', 'lag_2', 'lag_3', 'lag_12', 'month_sin', 'month_cos', 'rolling_3',
+                'mei_value', 'mei_lag3']
     target = 'rainfall'
-    
+
     return monthly_df[features], monthly_df[target]
+
+def _compute_spi(rainfall_series, window=3):
+    """
+    Compute Standardized Precipitation Index (SPI) from a rainfall series.
+
+    SPI uses gamma distribution fitting on rolling-window accumulated rainfall,
+    then transforms to standard normal space. This is the meteorological standard
+    for drought quantification (McKee et al. 1993).
+
+    Args:
+        rainfall_series: pandas Series of monthly rainfall values
+        window: accumulation window in months (commonly 3 or 6)
+
+    Returns:
+        pandas Series of SPI values
+    """
+    # Accumulate rainfall over the window
+    accumulated = rainfall_series.rolling(window=window, min_periods=window).sum()
+
+    spi_values = pd.Series(index=rainfall_series.index, dtype=float)
+
+    for month in range(1, 13):
+        # Get accumulated values for this calendar month across all years
+        # (SPI is fitted per calendar month to account for seasonality)
+        month_mask = (rainfall_series.index % 12) == (month - 1) % 12
+        month_vals = accumulated[month_mask].dropna()
+
+        if len(month_vals) < 10:
+            # Not enough data to fit; use z-score fallback
+            if month_vals.std() > 0:
+                spi_values[month_mask] = (accumulated[month_mask] - month_vals.mean()) / month_vals.std()
+            else:
+                spi_values[month_mask] = 0.0
+            continue
+
+        # Filter out zeros for gamma fitting (gamma requires positive values)
+        positive_vals = month_vals[month_vals > 0]
+        q_zero = (month_vals <= 0).sum() / len(month_vals)  # probability of zero
+
+        if len(positive_vals) < 5:
+            spi_values[month_mask] = 0.0
+            continue
+
+        try:
+            # Fit gamma distribution to positive values
+            alpha, loc, beta = gamma_dist.fit(positive_vals, floc=0)
+
+            # Transform each value to SPI
+            for idx in accumulated[month_mask].dropna().index:
+                val = accumulated[idx]
+                if val <= 0:
+                    # Map zero rainfall to cumulative probability
+                    cum_prob = q_zero / 2  # midpoint of zero probability
+                else:
+                    # Gamma CDF + zero adjustment
+                    cum_prob = q_zero + (1 - q_zero) * gamma_dist.cdf(val, alpha, loc=0, scale=beta)
+
+                # Clamp to avoid infinity
+                cum_prob = max(0.001, min(0.999, cum_prob))
+
+                # Convert to standard normal (inverse CDF)
+                from scipy.stats import norm
+                spi_values[idx] = norm.ppf(cum_prob)
+        except Exception:
+            # Fallback to z-score if gamma fit fails
+            if month_vals.std() > 0:
+                spi_values[month_mask] = (accumulated[month_mask] - month_vals.mean()) / month_vals.std()
+            else:
+                spi_values[month_mask] = 0.0
+
+    return spi_values
+
 
 def load_drought_data():
     """
@@ -69,6 +155,10 @@ def load_drought_data():
     IMPORTANT: Features use LAGGED (shifted) values only to prevent data leakage.
     The target (drought_score) is derived from current-month rainfall deficit,
     so features must not include current-month deficit or unshifted rolling averages.
+
+    NEW in v2: Adds SPI-3 and SPI-6 (Standardized Precipitation Index) computed
+    from gamma-fitted rainfall distributions. SPI is the meteorological standard
+    for drought quantification.
 
     Returns:
         X (DataFrame): Features
@@ -121,6 +211,34 @@ def load_drought_data():
     df_melted['monsoon_strength'] = df_melted['rolling_4mo_sum'] / monsoon_normal
     df_melted['monsoon_strength'] = df_melted['monsoon_strength'].clip(upper=2.0)
 
+    # NEW: SPI-3 and SPI-6 (Standardized Precipitation Index)
+    # Computed from LAGGED rainfall (shift by 1) to prevent data leakage
+    lagged_rainfall = df_melted['Rainfall'].shift(1)
+    df_melted['spi_3'] = _compute_spi(lagged_rainfall, window=3)
+    df_melted['spi_6'] = _compute_spi(lagged_rainfall, window=6)
+
+    # NEW: Consecutive dry months (count of consecutive months with below-normal rainfall)
+    below_normal = (df_melted['Rainfall'].shift(1) < df_melted['normal_rainfall'] * 0.75).astype(int)
+    # Count consecutive 1s using cumsum trick
+    cumsum = below_normal.cumsum()
+    reset = cumsum.where(below_normal == 0).ffill().fillna(0)
+    df_melted['consecutive_dry_months'] = (cumsum - reset).clip(upper=12)
+
+    # NEW v3: ENSO (El Nino / La Nina) index for drought prediction
+    if os.path.exists(ENSO_PATH):
+        enso_df = pd.read_csv(ENSO_PATH)
+        df_melted = df_melted.merge(
+            enso_df, left_on=['Year', 'Month'], right_on=['year', 'month'], how='left'
+        )
+        df_melted['mei_value'] = df_melted['mei_value'].fillna(0.0)
+        # 3-month lagged ENSO captures delayed drought impact
+        df_melted['mei_lag3'] = df_melted['mei_value'].shift(3).fillna(0.0)
+        # Drop merge columns if they exist
+        df_melted = df_melted.drop(columns=['year', 'month'], errors='ignore')
+    else:
+        df_melted['mei_value'] = 0.0
+        df_melted['mei_lag3'] = 0.0
+
     # Target: Drought Score (uses CURRENT month data - this is what we predict)
     def calculate_score(row):
         if row['normal_rainfall'] == 0: return 0
@@ -131,7 +249,9 @@ def load_drought_data():
 
     df_melted = df_melted.dropna()
 
-    features = ['rolling_3mo', 'rolling_6mo', 'deficit_pct', 'prev_year_drought', 'monsoon_strength']
+    features = ['rolling_3mo', 'rolling_6mo', 'deficit_pct', 'prev_year_drought',
+                'monsoon_strength', 'spi_3', 'spi_6', 'consecutive_dry_months',
+                'mei_value', 'mei_lag3']
     target = 'drought_score'
 
     return df_melted[features], df_melted[target]
@@ -139,48 +259,118 @@ def load_drought_data():
 def load_heatwave_data():
     """
     Load and preprocess temperature data for heatwave prediction.
+
+    NEW in v2: Added temp_min, diurnal_range, precipitation, heat_streak,
+    and temp_min lags for better signal extraction. These use data already
+    in the CSV (no external download needed).
+
     Returns:
         X (DataFrame): Features
         y (Series): Target (is_heatwave)
     """
     if not os.path.exists(TEMP_PATH):
         raise FileNotFoundError(f"Temperature data not found at {TEMP_PATH}")
-        
+
     df = pd.read_csv(TEMP_PATH, parse_dates=["date"])
-    
+
     # Feature Engineering
     df['month'] = df['date'].dt.month
-    
-    # Lags
+
+    # Lags - max temp
     df['temp_max_lag1'] = df['temp_max'].shift(1)
     df['temp_max_lag2'] = df['temp_max'].shift(2)
     df['temp_max_lag3'] = df['temp_max'].shift(3)
-    
-    # Rolling
+
+    # Rolling - max temp
     df['temp_max_7day_avg'] = df['temp_max'].rolling(window=7).mean()
-    
+
     # Cyclical
     df['month_sin'] = np.sin(2 * np.pi * df['month'] / 12)
     df['month_cos'] = np.cos(2 * np.pi * df['month'] / 12)
-    
+
     # Anomaly
     monthly_normals = df.groupby('month')['temp_max'].transform('mean')
     df['temp_anomaly'] = df['temp_max'] - monthly_normals
-    
+
+    # NEW: Diurnal range (large range = dry air = more heatwave risk)
+    df['diurnal_range'] = df['temp_max'] - df['temp_min']
+    df['diurnal_range_lag1'] = df['diurnal_range'].shift(1)
+
+    # NEW: Min temp features (warm nights = sustained heat stress)
+    df['temp_min_lag1'] = df['temp_min'].shift(1)
+    df['temp_min_7day_avg'] = df['temp_min'].rolling(window=7).mean()
+
+    # NEW: Precipitation (lack of rain intensifies heat)
+    df['precipitation'] = df['precipitation'].fillna(0.0)
+    df['precip_7day_sum'] = df['precipitation'].rolling(window=7).sum()
+
+    # NEW: Heat streak - consecutive days above 38°C (shifted to avoid leakage)
+    hot_day = (df['temp_max'].shift(1) >= 38).astype(int)
+    cumsum_hot = hot_day.cumsum()
+    reset_hot = cumsum_hot.where(hot_day == 0).ffill().fillna(0)
+    df['heat_streak'] = (cumsum_hot - reset_hot).clip(upper=14)
+
+    # NEW v3: Weather-enriched features from extended CSV
+    # Wind speed (high wind can mitigate or exacerbate heatwave depending on conditions)
+    if 'wind_speed_max' in df.columns:
+        df['wind_speed_lag1'] = df['wind_speed_max'].shift(1)
+        df['wind_gusts_lag1'] = df['wind_gusts_max'].shift(1)
+    else:
+        df['wind_speed_lag1'] = 0.0
+        df['wind_gusts_lag1'] = 0.0
+
+    # Solar radiation (directly correlates with heat buildup)
+    if 'solar_radiation' in df.columns:
+        df['solar_rad_lag1'] = df['solar_radiation'].shift(1)
+        df['solar_rad_3day_avg'] = df['solar_radiation'].shift(1).rolling(3).mean()
+    else:
+        df['solar_rad_lag1'] = 0.0
+        df['solar_rad_3day_avg'] = 0.0
+
+    # ET0 evapotranspiration (high ET0 = vegetation stress = amplified urban heat)
+    if 'et0_evapotranspiration' in df.columns:
+        df['et0_lag1'] = df['et0_evapotranspiration'].shift(1)
+        df['et0_7day_avg'] = df['et0_evapotranspiration'].shift(1).rolling(7).mean()
+    else:
+        df['et0_lag1'] = 0.0
+        df['et0_7day_avg'] = 0.0
+
+    # Soil moisture (low soil moisture = dry conditions = heat amplification)
+    if 'soil_moisture_0_10cm' in df.columns:
+        df['soil_moisture_lag1'] = df['soil_moisture_0_10cm'].shift(1)
+    else:
+        df['soil_moisture_lag1'] = 0.2  # default ~20% volumetric
+
+    # Sea-level pressure (high pressure systems = clear skies = heat buildup)
+    if 'pressure_msl' in df.columns:
+        df['pressure_lag1'] = df['pressure_msl'].shift(1)
+        df['pressure_change_1d'] = df['pressure_msl'].shift(1) - df['pressure_msl'].shift(2)
+    else:
+        df['pressure_lag1'] = 1013.0
+        df['pressure_change_1d'] = 0.0
+
     # Target: Heatwave Definition
-    # Max temp >= 40 AND anomaly >= 4.5  (Strict definition) OR just > 40 for simplicity in some contexts, 
+    # Max temp >= 40 AND anomaly >= 4.5  (Strict definition) OR just > 40 for simplicity in some contexts,
     # but sticking to previous definition: >= 40 OR >= 4.5 above normal
     df['is_heatwave'] = ((df['temp_max'] >= 40) | (df['temp_anomaly'] >= 4.5)).astype(int)
-    
+
     # Handle humidity
     df['humidity'] = df['humidity'].fillna(df['humidity'].median())
-    
+
     df = df.dropna()
-    
-    features = ['temp_max_lag1', 'temp_max_lag2', 'temp_max_lag3', 
-                'temp_max_7day_avg', 'humidity', 'month_sin', 'month_cos', 'month']
+
+    features = ['temp_max_lag1', 'temp_max_lag2', 'temp_max_lag3',
+                'temp_max_7day_avg', 'humidity', 'month_sin', 'month_cos', 'month',
+                'diurnal_range_lag1', 'temp_min_lag1', 'temp_min_7day_avg',
+                'precip_7day_sum', 'heat_streak',
+                # NEW v3: Weather-enriched features
+                'wind_speed_lag1', 'wind_gusts_lag1',
+                'solar_rad_lag1', 'solar_rad_3day_avg',
+                'et0_lag1', 'et0_7day_avg',
+                'soil_moisture_lag1',
+                'pressure_lag1', 'pressure_change_1d']
     target = 'is_heatwave'
-    
+
     return df[features], df[target]
 
 def load_crop_data():

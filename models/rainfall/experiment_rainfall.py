@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from xgboost import XGBRegressor
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 
@@ -32,6 +33,7 @@ def run_experiment():
     try:
         print("=" * 60)
         print("EXPERIMENT 1: RAINFALL PREDICTION (Regression)")
+        print("  v2: Added XGBoost candidate")
         print("=" * 60)
 
         # 1. Load Data
@@ -49,8 +51,8 @@ def run_experiment():
             "Random Forest": {
                 "model": RandomForestRegressor(random_state=42),
                 "params": {
-                    "n_estimators": [50, 100, 200],
-                    "max_depth": [None, 10, 20],
+                    "n_estimators": [100, 200],
+                    "max_depth": [10, 20],
                     "min_samples_leaf": [1, 5]
                 }
             },
@@ -60,6 +62,18 @@ def run_experiment():
                     "n_estimators": [100, 200],
                     "learning_rate": [0.01, 0.1],
                     "max_depth": [3, 5]
+                }
+            },
+            "XGBoost": {
+                "model": XGBRegressor(random_state=42, verbosity=0, tree_method='hist'),
+                "params": {
+                    "n_estimators": [100, 200, 300],
+                    "learning_rate": [0.01, 0.05, 0.1],
+                    "max_depth": [3, 5, 7],
+                    "subsample": [0.8, 1.0],
+                    "colsample_bytree": [0.8, 1.0],
+                    "reg_alpha": [0, 0.1],
+                    "reg_lambda": [1, 2]
                 }
             }
         }
@@ -73,7 +87,7 @@ def run_experiment():
         print("\n[Experiment] Training candidate models...")
         for name, config in models.items():
             print(f"   > Training {name}...")
-            
+
             if config["params"]:
                 # Use Grid Search
                 search = GridSearchCV(config["model"], config["params"], cv=3, scoring='r2', n_jobs=-1)
@@ -90,9 +104,9 @@ def run_experiment():
             r2 = r2_score(y_test, y_pred)
             rmse = np.sqrt(mean_squared_error(y_test, y_pred))
             mae = mean_absolute_error(y_test, y_pred)
-            
-            print(f"     R2: {r2:.4f} | RMSE: {rmse:.2f}")
-            
+
+            print(f"     R2: {r2:.4f} | RMSE: {rmse:.2f} | MAE: {mae:.2f}")
+
             results.append({
                 "Model": name,
                 "R2": r2,
@@ -100,7 +114,7 @@ def run_experiment():
                 "MAE": mae,
                 "Model Object": model
             })
-            
+
             if r2 > best_score:
                 best_score = r2
                 best_model = model
@@ -113,8 +127,10 @@ def run_experiment():
 
         joblib.dump(best_model, os.path.join(output_dir, "best_model.joblib"))
         joblib.dump(X.columns.tolist(), os.path.join(output_dir, "features.joblib"))
-        
+
         # 5. Visualization
+        import matplotlib
+        matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         import seaborn as sns
 
@@ -125,7 +141,7 @@ def run_experiment():
 
         # Re-predict with best model for plotting
         y_pred_best = best_model.predict(X_test)
-        
+
         # Plot 1: Actual vs Predicted
         plt.figure(figsize=(10, 6))
         plt.scatter(y_test, y_pred_best, alpha=0.5)
@@ -150,19 +166,20 @@ def run_experiment():
         print(f"Plots saved to {plots_dir}")
 
         # 6. Generate Report
-        # EXPERIMENT_REPORT (Consolidated)
         exp_report_path = os.path.join(output_dir, "EXPERIMENT_REPORT.md")
         with open(exp_report_path, "w") as f:
-            f.write("# Experiment Report: Rainfall Prediction\n\n")
+            f.write("# Experiment Report: Rainfall Prediction (v2)\n\n")
             f.write(f"**Best Model:** {best_name}\n")
             f.write(f"**Test R2 Score:** {best_score:.4f}\n\n")
 
             f.write("## 1. Overview\n")
-            f.write("This model predicts monthly rainfall in Hyderabad using historical lag features and rolling averages.\n\n")
+            f.write("This model predicts monthly rainfall in Hyderabad using historical lag features and rolling averages.\n")
+            f.write("**v2 upgrade:** Added XGBoost with regularization as a candidate model.\n\n")
 
             f.write("## 2. Methodology\n")
-            f.write("- **Data Source:** IMD Historical Rainfall Data.\n")
-            f.write("- **Features:** 3-month rolling average, lags (1, 2, 3 months), and seasonal sin/cos components.\n\n")
+            f.write("- **Data Source:** IMD Historical Rainfall Data (1901-2021, 121 years).\n")
+            f.write("- **Features:** 3-month rolling average, lags (1, 2, 3, 12 months), and seasonal sin/cos components.\n")
+            f.write("- **Models:** Linear Regression, Random Forest, Gradient Boosting, XGBoost.\n\n")
 
             f.write("## 3. Visual Performance Benchmarks\n")
             f.write("### Actual vs Predicted\n")
@@ -175,7 +192,7 @@ def run_experiment():
             f.write("|-------|----------|------|-----|\n")
             for res in results:
                 f.write(f"| {res['Model']} | {res['R2']:.4f} | {res['RMSE']:.2f} | {res['MAE']:.2f} |\n")
-        
+
         print(f"Report saved to {output_dir}")
         print(f"Model saved to {os.path.join(output_dir, 'best_model.joblib')}")
 
