@@ -268,7 +268,7 @@ def predict_rainfall(req: RainfallRequest):
     return {
         "predicted_rainfall_mm": round(pred, 2),
         "risk_category": risk,
-        "input": req.dict()
+        "input": req.model_dump()
     }
 
 @app.post("/predict_drought")
@@ -291,7 +291,7 @@ def predict_drought(req: DroughtRequest):
     return {
         "drought_score": round(score, 2),
         "category": cat,
-        "input": req.dict()
+        "input": req.model_dump()
     }
 
 @app.post("/predict_heatwave")
@@ -314,7 +314,7 @@ def predict_heatwave(req: HeatwaveRequest):
     return {
         "is_heatwave": bool(prediction),
         "heatwave_probability": round(float(probability), 3),
-        "input": req.dict()
+        "input": req.model_dump()
     }
 
 @app.post("/predict_crop_impact")
@@ -323,24 +323,33 @@ def predict_crop_impact(req: CropRequest):
         raise HTTPException(503, "Crop model not loaded")
     
     try:
+        if req.crop_type not in crop_encoder.classes_:
+            raise HTTPException(400, f"Unknown crop '{req.crop_type}'. Available: {crop_encoder.classes_.tolist()}")
+        if req.state not in state_encoder.classes_:
+            raise HTTPException(400, f"Unknown state '{req.state}'. Available: {state_encoder.classes_.tolist()}")
+        if req.season.strip() not in season_encoder.classes_:
+            raise HTTPException(400, f"Unknown season '{req.season}'. Available: {season_encoder.classes_.tolist()}")
+
         crop_enc = crop_encoder.transform([req.crop_type])[0]
-        state_enc = state_encoder.transform([req.state])[0] if req.state in state_encoder.classes_ else 0
-        season_enc = season_encoder.transform([req.season.strip()])[0] if req.season.strip() in season_encoder.classes_ else 0
-        
+        state_enc = state_encoder.transform([req.state])[0]
+        season_enc = season_encoder.transform([req.season.strip()])[0]
+
         features = pd.DataFrame([{
             'rainfall': req.rainfall, 'rainfall_anomaly': req.rainfall_anomaly,
             'fertilizer_per_area': req.fertilizer_per_area, 'pesticide_per_area': req.pesticide_per_area,
             'crop_encoded': crop_enc, 'state_encoded': state_enc, 'season_encoded': season_enc
         }])
-        
+
         yield_dev = max(0, min(80, crop_model.predict(features)[0]))
         cat = "Critical Impact" if yield_dev > 50 else "Severe Impact" if yield_dev > 30 else "Moderate Impact" if yield_dev > 15 else "Mild Impact" if yield_dev > 5 else "Minimal Impact"
-        
+
         return {
             "yield_deviation_pct": round(yield_dev, 2),
             "impact_category": cat,
             "available_crops": crop_encoder.classes_.tolist()
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, f"Internal Error: {str(e)}")
 
@@ -366,6 +375,30 @@ def get_kml(filename: str):
         return FileResponse(kml_path, media_type="application/vnd.google-earth.kml+xml")
     raise HTTPException(404, "KML file not found")
 
+def _compute_baselines(weather):
+    """Compute heatwave probability and crop risk from models instead of hardcoded values."""
+    hw_prob = 0.0
+    if heatwave_model is not None:
+        # Use current conditions as a rough baseline estimate
+        temp_est = 35.0  # seasonal average for Hyderabad
+        features = pd.DataFrame([{
+            'temp_max_lag1': temp_est, 'temp_max_lag2': temp_est, 'temp_max_lag3': temp_est,
+            'temp_max_7day_avg': temp_est, 'humidity': 50.0,
+            'month_sin': np.sin(2 * np.pi * pd.Timestamp.now().month / 12),
+            'month_cos': np.cos(2 * np.pi * pd.Timestamp.now().month / 12),
+            'month': pd.Timestamp.now().month
+        }])
+        try:
+            hw_prob = round(float(heatwave_model.predict_proba(features)[0][1]) * 100, 1)
+        except Exception:
+            hw_prob = 0.0
+
+    rain_mm = weather.get("current_rainfall_mm", 0)
+    crop_risk = "High" if rain_mm > 100 else "Moderate" if rain_mm > 50 else "Low"
+
+    return {"heatwave_prob": hw_prob, "crop_risk": crop_risk}
+
+
 @app.get("/dashboard_summary")
 def summary():
     ws = WeatherService()
@@ -385,10 +418,7 @@ def summary():
             "status": "Raining" if weather.get("is_raining") else "Clear",
             "timestamp": weather.get("timestamp", "--")
         },
-        "baselines": {
-            "heatwave_prob": 12.5,
-            "crop_risk": "Low"
-        }
+        "baselines": _compute_baselines(weather)
     }
 
 # === EMERGENCY RESOURCES (Phase 6) ===
@@ -491,6 +521,38 @@ def calculate_safe_route(req: RouteRequest):
         "message": message,
         "weather_context": weather
     }
+
+@app.get("/historical_rainfall")
+def historical_rainfall():
+    """Returns recent historical monthly rainfall data for trend visualization."""
+    try:
+        csv_path = os.path.join(BASE_DIR, "data", "hyderabad_rainfall_data.csv")
+        df = pd.read_csv(csv_path)
+        months = ['Jan', 'Feb', 'Mar', 'April', 'May', 'June',
+                  'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
+        month_labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+        # Last 5 years of data for trend chart
+        recent = df.tail(5)
+        years = []
+        for _, row in recent.iterrows():
+            year_data = {"year": int(row['Year']), "monthly": []}
+            for i, m in enumerate(months):
+                if m in row:
+                    year_data["monthly"].append({"month": month_labels[i], "rainfall_mm": float(row[m])})
+            years.append(year_data)
+
+        # Monthly averages across all years
+        averages = []
+        for i, m in enumerate(months):
+            if m in df.columns:
+                averages.append({"month": month_labels[i], "avg_mm": round(float(df[m].mean()), 1)})
+
+        return {"years": years, "long_term_averages": averages}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to load historical data: {str(e)}")
+
 
 @app.get("/health")
 def health():

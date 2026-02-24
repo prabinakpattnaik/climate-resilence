@@ -7,17 +7,17 @@ EXPERIMENT 2: DROUGHT PREDICTION (Regression)
 
 [Experiment] Training candidate models...
    > Training Ridge Regression...
-     Best Params: {'regressor__alpha': 0.1}
-     R2: 1.0000 | RMSE: 0.00
+     Best Params: {'regressor__alpha': 10.0}
+     R2: 0.1892 | RMSE: 37.07
    > Training SVR...
-     Best Params: {'regressor__C': 10, 'regressor__kernel': 'linear'}
-     R2: 1.0000 | RMSE: 0.08
+     Best Params: {'regressor__C': 1, 'regressor__kernel': 'rbf'}
+     R2: 0.1711 | RMSE: 37.49
    > Training Random Forest...
-     Best Params: {'regressor__max_depth': None, 'regressor__n_estimators': 100}
-     R2: 1.0000 | RMSE: 0.12
+     Best Params: {'regressor__max_depth': 5, 'regressor__n_estimators': 100}
+     R2: 0.1914 | RMSE: 37.02
 
 ============================================================
-WINNER: Ridge Regression (R2: 1.0000)
+WINNER: Random Forest (R2: 0.1914)
 ============================================================
-Plots saved to C:\Hemanth\ConnectBeacon\Climate_AI\static\plots
-Report saved to C:\Hemanth\ConnectBeacon\Climate_AI\models\drought
+Plots saved to C:\Users\prabina\Code\resilience-grid-main\.claude\worktrees\trusting-wu\static\plots
+Report saved to C:\Users\prabina\Code\resilience-grid-main\.claude\worktrees\trusting-wu\models\drought

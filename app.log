@@ -1,0 +1,90 @@
+2026-02-23 20:49:25,311 - ClimateAPI - INFO - ✓ Loaded: Rainfall Model
+2026-02-23 20:49:25,350 - ClimateAPI - INFO - ✓ Loaded: Drought Model
+2026-02-23 20:49:25,354 - ClimateAPI - INFO - ✓ Loaded: Heatwave Model
+2026-02-23 20:49:25,362 - ClimateAPI - INFO - ✓ Loaded: Crop Model
+2026-02-23 20:49:25,409 - ClimateAPI - INFO - ✓ Loaded: Crop Encoder
+2026-02-23 20:49:25,412 - ClimateAPI - INFO - ✓ Loaded: State Encoder
+2026-02-23 20:49:25,414 - ClimateAPI - INFO - ✓ Loaded: Season Encoder
+2026-02-23 20:49:25,417 - ClimateAPI - INFO - ⏳ Pre-loading urban infrastructure data (KML)...
+2026-02-23 20:49:27,152 - ClimateAPI - INFO - ✅ Pre-loaded 4 infrastructure layers.
+2026-02-23 20:50:13,892 - ClimateAPI - INFO - ✓ Loaded: Rainfall Model
+2026-02-23 20:50:13,960 - ClimateAPI - INFO - ✓ Loaded: Drought Model
+2026-02-23 20:50:13,965 - ClimateAPI - INFO - ✓ Loaded: Heatwave Model
+2026-02-23 20:50:13,978 - ClimateAPI - INFO - ✓ Loaded: Crop Model
+2026-02-23 20:50:14,048 - ClimateAPI - INFO - ✓ Loaded: Crop Encoder
+2026-02-23 20:50:14,051 - ClimateAPI - INFO - ✓ Loaded: State Encoder
+2026-02-23 20:50:14,055 - ClimateAPI - INFO - ✓ Loaded: Season Encoder
+2026-02-23 20:50:14,059 - ClimateAPI - INFO - [INIT] Pre-loading urban infrastructure data (KML)...
+2026-02-23 20:50:16,208 - ClimateAPI - INFO - [OK] Pre-loaded 4 infrastructure layers.
+2026-02-23 20:50:29,602 - ClimateAPI - INFO - [OK] Loaded: Rainfall Model
+2026-02-23 20:50:29,642 - ClimateAPI - INFO - [OK] Loaded: Drought Model
+2026-02-23 20:50:29,646 - ClimateAPI - INFO - [OK] Loaded: Heatwave Model
+2026-02-23 20:50:29,655 - ClimateAPI - INFO - [OK] Loaded: Crop Model
+2026-02-23 20:50:29,693 - ClimateAPI - INFO - [OK] Loaded: Crop Encoder
+2026-02-23 20:50:29,696 - ClimateAPI - INFO - [OK] Loaded: State Encoder
+2026-02-23 20:50:29,699 - ClimateAPI - INFO - [OK] Loaded: Season Encoder
+2026-02-23 20:50:29,701 - ClimateAPI - INFO - [INIT] Pre-loading urban infrastructure data (KML)...
+2026-02-23 20:50:31,046 - ClimateAPI - INFO - [OK] Pre-loaded 4 infrastructure layers.
+2026-02-23 20:53:09,570 - ClimateAPI - INFO - [OK] Loaded: Rainfall Model
+2026-02-23 20:53:09,603 - ClimateAPI - INFO - [OK] Loaded: Drought Model
+2026-02-23 20:53:09,606 - ClimateAPI - INFO - [OK] Loaded: Heatwave Model
+2026-02-23 20:53:09,612 - ClimateAPI - INFO - [OK] Loaded: Crop Model
+2026-02-23 20:53:09,641 - ClimateAPI - INFO - [OK] Loaded: Crop Encoder
+2026-02-23 20:53:09,643 - ClimateAPI - INFO - [OK] Loaded: State Encoder
+2026-02-23 20:53:09,645 - ClimateAPI - INFO - [OK] Loaded: Season Encoder
+2026-02-23 20:53:09,647 - ClimateAPI - INFO - [INIT] Pre-loading urban infrastructure data (KML)...
+2026-02-23 20:53:10,776 - ClimateAPI - INFO - [OK] Pre-loaded 4 infrastructure layers.
+2026-02-23 20:58:49,339 - ClimateAPI - INFO - [OK] Loaded: Rainfall Model
+2026-02-23 20:58:49,377 - ClimateAPI - INFO - [OK] Loaded: Drought Model
+2026-02-23 20:58:49,381 - ClimateAPI - INFO - [OK] Loaded: Heatwave Model
+2026-02-23 20:58:49,389 - ClimateAPI - INFO - [OK] Loaded: Crop Model
+2026-02-23 20:58:49,427 - ClimateAPI - INFO - [OK] Loaded: Crop Encoder
+2026-02-23 20:58:49,430 - ClimateAPI - INFO - [OK] Loaded: State Encoder
+2026-02-23 20:58:49,432 - ClimateAPI - INFO - [OK] Loaded: Season Encoder
+2026-02-23 20:58:49,435 - ClimateAPI - INFO - [INIT] Pre-loading urban infrastructure data (KML)...
+2026-02-23 20:58:50,617 - ClimateAPI - INFO - [OK] Pre-loaded 4 infrastructure layers.
+2026-02-23 21:10:22,111 - ClimateAPI - INFO - [OK] Loaded: Rainfall Model
+2026-02-23 21:10:22,148 - ClimateAPI - INFO - [OK] Loaded: Drought Model
+2026-02-23 21:10:22,154 - ClimateAPI - INFO - [OK] Loaded: Heatwave Model
+2026-02-23 21:10:22,164 - ClimateAPI - INFO - [OK] Loaded: Crop Model
+2026-02-23 21:10:22,210 - ClimateAPI - INFO - [OK] Loaded: Crop Encoder
+2026-02-23 21:10:22,216 - ClimateAPI - INFO - [OK] Loaded: State Encoder
+2026-02-23 21:10:22,221 - ClimateAPI - INFO - [OK] Loaded: Season Encoder
+2026-02-23 21:10:22,228 - ClimateAPI - INFO - [INIT] Pre-loading urban infrastructure data (KML)...
+2026-02-23 21:10:23,751 - ClimateAPI - INFO - [OK] Pre-loaded 4 infrastructure layers.
+2026-02-23 21:33:32,832 - ClimateAPI - INFO - [OK] Loaded: Rainfall Model
+2026-02-23 21:33:32,859 - ClimateAPI - INFO - [OK] Loaded: Drought Model
+2026-02-23 21:33:32,862 - ClimateAPI - INFO - [OK] Loaded: Heatwave Model
+2026-02-23 21:33:32,868 - ClimateAPI - INFO - [OK] Loaded: Crop Model
+2026-02-23 21:33:32,896 - ClimateAPI - INFO - [OK] Loaded: Crop Encoder
+2026-02-23 21:33:32,898 - ClimateAPI - INFO - [OK] Loaded: State Encoder
+2026-02-23 21:33:32,900 - ClimateAPI - INFO - [OK] Loaded: Season Encoder
+2026-02-23 21:33:32,902 - ClimateAPI - INFO - [INIT] Pre-loading urban infrastructure data (KML)...
+2026-02-23 21:33:33,844 - ClimateAPI - INFO - [OK] Pre-loaded 4 infrastructure layers.
+2026-02-23 21:55:32,095 - ClimateAPI - INFO - [OK] Loaded: Rainfall Model
+2026-02-23 21:55:32,127 - ClimateAPI - INFO - [OK] Loaded: Drought Model
+2026-02-23 21:55:32,130 - ClimateAPI - INFO - [OK] Loaded: Heatwave Model
+2026-02-23 21:55:32,138 - ClimateAPI - INFO - [OK] Loaded: Crop Model
+2026-02-23 21:55:32,173 - ClimateAPI - INFO - [OK] Loaded: Crop Encoder
+2026-02-23 21:55:32,176 - ClimateAPI - INFO - [OK] Loaded: State Encoder
+2026-02-23 21:55:32,178 - ClimateAPI - INFO - [OK] Loaded: Season Encoder
+2026-02-23 21:55:32,180 - ClimateAPI - INFO - [INIT] Pre-loading urban infrastructure data (KML)...
+2026-02-23 21:55:33,253 - ClimateAPI - INFO - [OK] Pre-loaded 4 infrastructure layers.
+2026-02-23 21:56:22,422 - ClimateAPI - INFO - [OK] Loaded: Rainfall Model
+2026-02-23 21:56:22,449 - ClimateAPI - INFO - [OK] Loaded: Drought Model
+2026-02-23 21:56:22,452 - ClimateAPI - INFO - [OK] Loaded: Heatwave Model
+2026-02-23 21:56:22,458 - ClimateAPI - INFO - [OK] Loaded: Crop Model
+2026-02-23 21:56:22,484 - ClimateAPI - INFO - [OK] Loaded: Crop Encoder
+2026-02-23 21:56:22,486 - ClimateAPI - INFO - [OK] Loaded: State Encoder
+2026-02-23 21:56:22,488 - ClimateAPI - INFO - [OK] Loaded: Season Encoder
+2026-02-23 21:56:22,490 - ClimateAPI - INFO - [INIT] Pre-loading urban infrastructure data (KML)...
+2026-02-23 21:56:23,461 - ClimateAPI - INFO - [OK] Pre-loaded 4 infrastructure layers.
+2026-02-23 22:05:22,919 - ClimateAPI - INFO - [OK] Loaded: Rainfall Model
+2026-02-23 22:05:22,959 - ClimateAPI - INFO - [OK] Loaded: Drought Model
+2026-02-23 22:05:22,963 - ClimateAPI - INFO - [OK] Loaded: Heatwave Model
+2026-02-23 22:05:22,975 - ClimateAPI - INFO - [OK] Loaded: Crop Model
+2026-02-23 22:05:23,023 - ClimateAPI - INFO - [OK] Loaded: Crop Encoder
+2026-02-23 22:05:23,026 - ClimateAPI - INFO - [OK] Loaded: State Encoder
+2026-02-23 22:05:23,028 - ClimateAPI - INFO - [OK] Loaded: Season Encoder
+2026-02-23 22:05:23,030 - ClimateAPI - INFO - [INIT] Pre-loading urban infrastructure data (KML)...
+2026-02-23 22:05:24,237 - ClimateAPI - INFO - [OK] Pre-loaded 4 infrastructure layers.
