@@ -21,8 +21,10 @@ from utils.agri_logic import AgriResilienceEngine
 from utils.iot_service import IoTSensorHub
 from utils.tourism_logic import TourismResilienceEngine
 from utils.media_logic import MediaIntelligenceEngine
+from utils.feature_engine import SmartFeatureEngine
 
 iot_hub = IoTSensorHub()
+smart_engine = SmartFeatureEngine()
 
 app = FastAPI(
     title="Urban Climate Vulnerability API",
@@ -134,6 +136,22 @@ class AgriRequest(BaseModel):
     crop: str
     state: str
     drought_prob: float
+
+# === SMART (CITIZEN) REQUEST MODELS ===
+
+class SmartRainfallRequest(BaseModel):
+    month: int  # 1-12
+
+class SmartDroughtRequest(BaseModel):
+    month: int  # 1-12
+
+class SmartHeatwaveRequest(BaseModel):
+    month: int  # 1-12
+
+class SmartCropRequest(BaseModel):
+    crop_type: str
+    state: str = "Telangana"
+    season: str = "Kharif"
 
 @app.post("/agri_advisory")
 def get_agri_advisory(req: AgriRequest):
@@ -521,6 +539,136 @@ def calculate_safe_route(req: RouteRequest):
         "message": message,
         "weather_context": weather
     }
+
+# === SMART (CITIZEN-FRIENDLY) ENDPOINTS ===
+
+@app.post("/smart/predict_rainfall")
+def smart_predict_rainfall(req: SmartRainfallRequest):
+    """Citizen-friendly rainfall prediction. Only requires month selection."""
+    if rainfall_model is None:
+        raise HTTPException(503, "Rainfall model not loaded")
+
+    features = smart_engine.compute_rainfall_features(req.month)
+    features_df = pd.DataFrame([{
+        "lag_1": features['lag_1'],
+        "lag_2": features['lag_2'],
+        "lag_3": features['lag_3'],
+        "lag_12": features['lag_12'],
+        "month_sin": features['month_sin'],
+        "month_cos": features['month_cos'],
+        "rolling_3": features['rolling_3']
+    }])
+
+    pred = max(0, rainfall_model.predict(features_df)[0])
+    risk = "High Risk (Flooding)" if pred > 200 else "Low Risk (Drought)" if pred < 30 else "Normal"
+
+    return {
+        "predicted_rainfall_mm": round(pred, 2),
+        "risk_category": risk,
+        "auto_computed_features": features,
+        "mode": "citizen"
+    }
+
+
+@app.post("/smart/predict_drought")
+def smart_predict_drought(req: SmartDroughtRequest):
+    """Citizen-friendly drought assessment. Only requires month selection."""
+    if drought_model is None:
+        raise HTTPException(503, "Drought model not loaded")
+
+    features = smart_engine.compute_drought_features(req.month)
+    features_df = pd.DataFrame([{
+        'rolling_3mo': features['rolling_3mo_avg'],
+        'rolling_6mo': features['rolling_6mo_avg'],
+        'deficit_pct': features['deficit_pct'],
+        'prev_year_drought': features['prev_year_drought'],
+        'monsoon_strength': features['monsoon_strength']
+    }])
+
+    score = max(0, min(100, drought_model.predict(features_df)[0]))
+    cat = ("Extreme Drought" if score > 80 else "Severe Drought" if score > 60
+           else "Moderate Drought" if score > 40 else "Mild Drought" if score > 20
+           else "No Drought")
+
+    return {
+        "drought_score": round(score, 2),
+        "category": cat,
+        "auto_computed_features": features,
+        "mode": "citizen"
+    }
+
+
+@app.post("/smart/predict_heatwave")
+def smart_predict_heatwave(req: SmartHeatwaveRequest):
+    """Citizen-friendly heatwave prediction. Only requires month."""
+    if heatwave_model is None:
+        raise HTTPException(503, "Heatwave model not loaded")
+
+    features = smart_engine.compute_heatwave_features(req.month)
+    features_df = pd.DataFrame([{
+        'temp_max_lag1': features['max_temp_lag1'],
+        'temp_max_lag2': features['max_temp_lag2'],
+        'temp_max_lag3': features['max_temp_lag3'],
+        'temp_max_7day_avg': features['temp_max_7day_avg'],
+        'humidity': features['humidity'],
+        'month_sin': features['month_sin'],
+        'month_cos': features['month_cos'],
+        'month': features['month']
+    }])
+
+    prediction = heatwave_model.predict(features_df)[0]
+    probability = heatwave_model.predict_proba(features_df)[0][1]
+
+    return {
+        "is_heatwave": bool(prediction),
+        "heatwave_probability": round(float(probability), 3),
+        "auto_computed_features": features,
+        "mode": "citizen"
+    }
+
+
+@app.post("/smart/predict_crop_impact")
+def smart_predict_crop_impact(req: SmartCropRequest):
+    """Citizen-friendly crop impact. Only requires crop, state, season."""
+    if crop_model is None or crop_encoder is None:
+        raise HTTPException(503, "Crop model not loaded")
+
+    if req.crop_type not in crop_encoder.classes_:
+        raise HTTPException(400, f"Unknown crop '{req.crop_type}'. Available: {crop_encoder.classes_.tolist()}")
+    if req.state not in state_encoder.classes_:
+        raise HTTPException(400, f"Unknown state '{req.state}'. Available: {state_encoder.classes_.tolist()}")
+    if req.season.strip() not in season_encoder.classes_:
+        raise HTTPException(400, f"Unknown season '{req.season}'. Available: {season_encoder.classes_.tolist()}")
+
+    auto_features = smart_engine.compute_crop_features(req.crop_type, req.state, req.season)
+
+    crop_enc = crop_encoder.transform([req.crop_type])[0]
+    state_enc = state_encoder.transform([req.state])[0]
+    season_enc = season_encoder.transform([req.season.strip()])[0]
+
+    features_df = pd.DataFrame([{
+        'rainfall': auto_features['rainfall'],
+        'rainfall_anomaly': auto_features['rainfall_anomaly'],
+        'fertilizer_per_area': auto_features['fertilizer_per_area'],
+        'pesticide_per_area': auto_features['pesticide_per_area'],
+        'crop_encoded': crop_enc,
+        'state_encoded': state_enc,
+        'season_encoded': season_enc
+    }])
+
+    yield_dev = max(0, min(80, crop_model.predict(features_df)[0]))
+    cat = ("Critical Impact" if yield_dev > 50 else "Severe Impact" if yield_dev > 30
+           else "Moderate Impact" if yield_dev > 15 else "Mild Impact" if yield_dev > 5
+           else "Minimal Impact")
+
+    return {
+        "yield_deviation_pct": round(yield_dev, 2),
+        "impact_category": cat,
+        "auto_computed_features": auto_features,
+        "available_crops": crop_encoder.classes_.tolist(),
+        "mode": "citizen"
+    }
+
 
 @app.get("/historical_rainfall")
 def historical_rainfall():

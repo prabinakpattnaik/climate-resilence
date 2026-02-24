@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=4">
+    <link rel="stylesheet" href="/static/styles.css?v=5">
 </head>
 
 <body>
@@ -41,162 +41,172 @@
         <section class="input-section">
             <h2>Configuration Parameters</h2>
 
-            <!-- Rainfall Form (Advanced) -->
+            <!-- Rainfall Form -->
             <form id="rainfall-form" class="model-form active">
-                <div class="form-row">
-                    <label>Target Month</label>
-                    <select name="month" required>
-                        <option value="1">January</option>
-                        <option value="2">February</option>
-                        <option value="3">March</option>
-                        <option value="4">April</option>
-                        <option value="5">May</option>
-                        <option value="6">June</option>
-                        <option value="7">July</option>
-                        <option value="8">August</option>
-                        <option value="9">September</option>
-                        <option value="10">October</option>
-                        <option value="11">November</option>
-                        <option value="12">December</option>
-                    </select>
+                <div class="mode-toggle">
+                    <button type="button" class="mode-btn active" data-mode="citizen" data-form="rainfall">Citizen Mode</button>
+                    <button type="button" class="mode-btn" data-mode="expert" data-form="rainfall">Expert Mode</button>
                 </div>
-                <!-- Manual Lags for Professional Control -->
-                <div class="form-row">
-                    <label title="Rainfall in millimeters from the previous calendar month.">Lag 1 (Prev Month Rain
-                        mm)</label>
-                    <input type="number" name="lag_1" value="120" step="0.1" required>
+                <!-- CITIZEN MODE (default) -->
+                <div class="citizen-inputs" id="rainfall-citizen-inputs">
+                    <div class="info-box" style="background: #eff6ff; border-color: #bfdbfe; color: #1e40af;">
+                        <p><strong>Smart Mode:</strong> Select a month and the AI will auto-compute prediction features from 121 years of IMD historical data.</p>
+                    </div>
+                    <div class="form-row">
+                        <label>Which month do you want to predict rainfall for?</label>
+                        <select name="smart_month">
+                            <option value="1">January</option><option value="2">February</option>
+                            <option value="3">March</option><option value="4">April</option>
+                            <option value="5">May</option><option value="6" selected>June (Monsoon)</option>
+                            <option value="7">July</option><option value="8">August</option>
+                            <option value="9">September</option><option value="10">October</option>
+                            <option value="11">November</option><option value="12">December</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="form-row">
-                    <label title="Rainfall from two months ago.">Lag 2 (2 Months Ago mm)</label>
-                    <input type="number" name="lag_2" value="80" step="0.1" required>
+                <!-- EXPERT MODE (hidden) -->
+                <div class="expert-inputs" id="rainfall-expert-inputs" style="display: none;">
+                    <div class="form-row"><label>Target Month</label>
+                        <select name="month"><option value="1">January</option><option value="2">February</option><option value="3">March</option><option value="4">April</option><option value="5">May</option><option value="6" selected>June</option><option value="7">July</option><option value="8">August</option><option value="9">September</option><option value="10">October</option><option value="11">November</option><option value="12">December</option></select>
+                    </div>
+                    <div class="form-row"><label title="Rainfall from the previous month.">Lag 1 (Prev Month Rain mm)</label><input type="number" name="lag_1" value="120" step="0.1"></div>
+                    <div class="form-row"><label title="Rainfall from two months ago.">Lag 2 (2 Months Ago mm)</label><input type="number" name="lag_2" value="80" step="0.1"></div>
+                    <div class="form-row"><label title="Rainfall from three months ago.">Lag 3 (3 Months Ago mm)</label><input type="number" name="lag_3" value="40" step="0.1"></div>
+                    <div class="form-row"><label title="Same month last year.">Lag 12 (Same Month Last Year mm)</label><input type="number" name="lag_12" value="150" step="0.1"></div>
                 </div>
-                <div class="form-row">
-                    <label title="Rainfall from three months ago.">Lag 3 (3 Months Ago mm)</label>
-                    <input type="number" name="lag_3" value="40" step="0.1" required>
-                </div>
-                <div class="form-row">
-                    <label title="Rainfall from the same month in the previous year (Year-over-Year).">Lag 12 (Same
-                        Month Last Year mm)</label>
-                    <input type="number" name="lag_12" value="150" step="0.1" required>
-                </div>
+                <div class="auto-features-panel" id="rainfall-auto-features" style="display: none;"><h4>What the AI computed:</h4><div class="features-grid"></div></div>
                 <button type="submit" class="predict-btn">Generate Prediction</button>
                 <button type="button" class="simulate-btn" data-form="rainfall">🔄 Simulate Scenario</button>
             </form>
 
             <!-- Drought Form -->
             <form id="drought-form" class="model-form">
-                <div class="form-row">
-                    <label title="Average rainfall over the last 3 months. Normal is ~300-500mm in monsoon.">3-Month Avg
-                        Rainfall (mm)</label>
-                    <input type="number" name="rolling_3mo" value="50" required>
+                <div class="mode-toggle">
+                    <button type="button" class="mode-btn active" data-mode="citizen" data-form="drought">Citizen Mode</button>
+                    <button type="button" class="mode-btn" data-mode="expert" data-form="drought">Expert Mode</button>
                 </div>
-                <div class="form-row">
-                    <label title="Average rainfall over the last 6 months. Indicators broader moisture trends.">6-Month
-                        Avg Rainfall (mm)</label>
-                    <input type="number" name="rolling_6mo" value="60" required>
+                <!-- CITIZEN MODE -->
+                <div class="citizen-inputs" id="drought-citizen-inputs">
+                    <div class="info-box" style="background: #eff6ff; border-color: #bfdbfe; color: #1e40af;">
+                        <p><strong>Smart Mode:</strong> Select a month and the AI will auto-assess drought risk from historical rainfall patterns and recent conditions.</p>
+                    </div>
+                    <div class="form-row">
+                        <label>Which month do you want to assess drought risk for?</label>
+                        <select name="smart_drought_month">
+                            <option value="1">January</option><option value="2">February</option>
+                            <option value="3">March</option><option value="4">April</option>
+                            <option value="5" selected>May (Pre-Monsoon)</option><option value="6">June</option>
+                            <option value="7">July</option><option value="8">August</option>
+                            <option value="9">September</option><option value="10">October</option>
+                            <option value="11">November</option><option value="12">December</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="form-row">
-                    <label
-                        title="Percentage deviation from 'Long Period Average' (LPA). Positive is surplus, negative is deficit.">Deficit
-                        from Normal (%)</label>
-                    <input type="number" name="deficit_pct" value="30" required>
+                <!-- EXPERT MODE -->
+                <div class="expert-inputs" id="drought-expert-inputs" style="display: none;">
+                    <div class="form-row"><label title="Average rainfall over the last 3 months.">3-Month Avg Rainfall (mm)</label><input type="number" name="rolling_3mo" value="50"></div>
+                    <div class="form-row"><label title="Average rainfall over the last 6 months.">6-Month Avg Rainfall (mm)</label><input type="number" name="rolling_6mo" value="60"></div>
+                    <div class="form-row"><label title="Percentage deviation from long-term average.">Deficit from Normal (%)</label><input type="number" name="deficit_pct" value="30"></div>
+                    <div class="form-row"><label title="Previous year drought score.">Last Year Drought Score</label><input type="number" name="prev_year_drought" value="25"></div>
+                    <div class="form-row"><label title="Monsoon performance index. 1.0 is normal.">Monsoon Strength (0-2)</label><input type="number" name="monsoon_strength" step="0.1" value="0.8"></div>
                 </div>
-                <div class="form-row">
-                    <label
-                        title="The model considers if the soil is already moisture-depleted from the previous year.">Last
-                        Year Drought Score</label>
-                    <input type="number" name="prev_year_drought" value="25" required>
-                </div>
-                <div class="form-row">
-                    <label
-                        title="Monsoon performance index. 1.0 is normal, <0.8 is weak (El Niño), >1.2 is strong.">Monsoon
-                        Strength (0-2)</label>
-                    <input type="number" name="monsoon_strength" step="0.1" value="0.8" required>
-                </div>
+                <div class="auto-features-panel" id="drought-auto-features" style="display: none;"><h4>What the AI computed:</h4><div class="features-grid"></div></div>
                 <button type="submit" class="predict-btn">Assess Drought Risk</button>
                 <button type="button" class="simulate-btn" data-form="drought">🔄 Simulate Scenario</button>
             </form>
 
             <!-- Heatwave Form -->
             <form id="heatwave-form" class="model-form">
-                <div class="form-row">
-                    <label
-                        title="Highest recorded temperature yesterday. Heatwaves often occur after 3 consecutive hot days.">Yesterday
-                        Max Temp (°C)</label>
-                    <input type="number" name="max_temp_lag1" step="0.1" value="42" required>
+                <div class="mode-toggle">
+                    <button type="button" class="mode-btn active" data-mode="citizen" data-form="heatwave">Citizen Mode</button>
+                    <button type="button" class="mode-btn" data-mode="expert" data-form="heatwave">Expert Mode</button>
                 </div>
-                <div class="form-row">
-                    <label title="Maximum temperature from two days ago.">2 Days Ago Max (°C)</label>
-                    <input type="number" name="max_temp_lag2" step="0.1" value="41" required>
+                <!-- CITIZEN MODE -->
+                <div class="citizen-inputs" id="heatwave-citizen-inputs">
+                    <div class="info-box" style="background: #eff6ff; border-color: #bfdbfe; color: #1e40af;">
+                        <p><strong>Smart Mode:</strong> Select a month and the AI will auto-compute heatwave risk from recent temperature records + live humidity data.</p>
+                    </div>
+                    <div class="form-row">
+                        <label>Which month do you want to assess heatwave risk for?</label>
+                        <select name="smart_heatwave_month">
+                            <option value="1">January</option><option value="2">February</option>
+                            <option value="3">March</option><option value="4">April</option>
+                            <option value="5" selected>May (Peak Heat)</option><option value="6">June</option>
+                            <option value="7">July</option><option value="8">August</option>
+                            <option value="9">September</option><option value="10">October</option>
+                            <option value="11">November</option><option value="12">December</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="form-row">
-                    <label title="Maximum temperature from three days ago.">3 Days Ago Max (°C)</label>
-                    <input type="number" name="max_temp_lag3" step="0.1" value="39" required>
+                <!-- EXPERT MODE -->
+                <div class="expert-inputs" id="heatwave-expert-inputs" style="display: none;">
+                    <div class="form-row"><label title="Highest recorded temperature yesterday.">Yesterday Max Temp (°C)</label><input type="number" name="max_temp_lag1" step="0.1" value="42"></div>
+                    <div class="form-row"><label title="Maximum temperature from two days ago.">2 Days Ago Max (°C)</label><input type="number" name="max_temp_lag2" step="0.1" value="41"></div>
+                    <div class="form-row"><label title="Maximum temperature from three days ago.">3 Days Ago Max (°C)</label><input type="number" name="max_temp_lag3" step="0.1" value="39"></div>
+                    <div class="form-row"><label title="Relative humidity. High humidity increases Heat Index.">Humidity (%)</label><input type="number" name="humidity" value="25"></div>
+                    <div class="form-row"><label title="Calendar month (1-12). Heatwaves in Hyderabad peak March-June.">Month (1-12)</label><input type="number" name="month" min="1" max="12" value="5"></div>
                 </div>
-                <div class="form-row">
-                    <label
-                        title="Relative humidity. High humidity combined with heat increases the 'Heat Index' (Feels Like).">Humidity
-                        (%)</label>
-                    <input type="number" name="humidity" value="25" required>
-                </div>
-                <div class="form-row">
-                    <label title="Calendar month (1-12). Heatwaves in Hyderabad are concentrated in March-June.">Month
-                        (1-12)</label>
-                    <input type="number" name="month" min="1" max="12" value="5" required>
-                </div>
+                <div class="auto-features-panel" id="heatwave-auto-features" style="display: none;"><h4>What the AI computed:</h4><div class="features-grid"></div></div>
                 <button type="submit" class="predict-btn">Calculate Probability</button>
                 <button type="button" class="simulate-btn" data-form="heatwave">🔄 Simulate Scenario</button>
             </form>
 
             <!-- Crop Impact Form -->
             <form id="crop-form" class="model-form">
-                <div class="form-row">
-                    <label title="The specific crop being analyzed. Each crop has different climate resilience.">Crop
-                        Type</label>
-                    <select name="crop_type" required>
-                        <option value="Rice">Rice</option>
-                        <option value="Cotton(lint)">Cotton</option>
-                        <option value="Maize">Maize</option>
-                        <option value="Groundnut">Groundnut</option>
-                        <option value="Sugarcane">Sugarcane</option>
-                    </select>
+                <div class="mode-toggle">
+                    <button type="button" class="mode-btn active" data-mode="citizen" data-form="crop">Citizen Mode</button>
+                    <button type="button" class="mode-btn" data-mode="expert" data-form="crop">Expert Mode</button>
                 </div>
-                <div class="form-row">
-                    <label title="The geographical state for regional policy and soil context.">State</label>
-                    <select name="state" required>
-                        <option value="Andhra Pradesh">Andhra Pradesh</option>
-                        <option value="Telangana">Telangana</option>
-                        <option value="Karnataka">Karnataka</option>
-                    </select>
+                <!-- CITIZEN MODE -->
+                <div class="citizen-inputs" id="crop-citizen-inputs">
+                    <div class="info-box" style="background: #eff6ff; border-color: #bfdbfe; color: #1e40af;">
+                        <p><strong>Smart Mode:</strong> Just select your crop, state, and season. The AI will auto-compute rainfall, fertilizer, and pesticide data from historical records.</p>
+                    </div>
+                    <div class="form-row">
+                        <label>Which crop are you growing?</label>
+                        <select name="smart_crop_type">
+                            <option value="Rice">Rice</option>
+                            <option value="Cotton(lint)">Cotton</option>
+                            <option value="Maize">Maize</option>
+                            <option value="Groundnut">Groundnut</option>
+                            <option value="Sugarcane">Sugarcane</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>Your state?</label>
+                        <select name="smart_state">
+                            <option value="Andhra Pradesh">Andhra Pradesh</option>
+                            <option value="Telangana" selected>Telangana</option>
+                            <option value="Karnataka">Karnataka</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>Growing season?</label>
+                        <select name="smart_season">
+                            <option value="Kharif" selected>Kharif (Monsoon)</option>
+                            <option value="Rabi">Rabi (Winter)</option>
+                            <option value="Whole Year">Whole Year</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="form-row">
-                    <label title="Agricultural season: Kharif (Monsoon), Rabi (Winter).">Season</label>
-                    <select name="season" required>
-                        <option value="Kharif">Kharif</option>
-                        <option value="Rabi">Rabi</option>
-                        <option value="Whole Year">Whole Year</option>
-                    </select>
+                <!-- EXPERT MODE -->
+                <div class="expert-inputs" id="crop-expert-inputs" style="display: none;">
+                    <div class="form-row"><label>Crop Type</label>
+                        <select name="crop_type"><option value="Rice">Rice</option><option value="Cotton(lint)">Cotton</option><option value="Maize">Maize</option><option value="Groundnut">Groundnut</option><option value="Sugarcane">Sugarcane</option></select>
+                    </div>
+                    <div class="form-row"><label>State</label>
+                        <select name="state"><option value="Andhra Pradesh">Andhra Pradesh</option><option value="Telangana">Telangana</option><option value="Karnataka">Karnataka</option></select>
+                    </div>
+                    <div class="form-row"><label>Season</label>
+                        <select name="season"><option value="Kharif">Kharif</option><option value="Rabi">Rabi</option><option value="Whole Year">Whole Year</option></select>
+                    </div>
+                    <div class="form-row"><label title="Total projected seasonal rainfall in mm.">Projected Rainfall (mm)</label><input type="number" name="rainfall" value="1000"></div>
+                    <div class="form-row"><label title="Anticipated rainfall deviation.">Rainfall Anomaly (%)</label><input type="number" name="rainfall_anomaly" value="-10"></div>
+                    <div class="form-row"><label title="Fertilizer intensity.">Fertilizer (kg/ha)</label><input type="number" name="fertilizer_per_area" value="120"></div>
+                    <div class="form-row"><label title="Pesticide application rate.">Pesticide (kg/ha)</label><input type="number" name="pesticide_per_area" step="0.1" value="2.5"></div>
                 </div>
-                <div class="form-row">
-                    <label title="Total projected seasonal rainfall in mm.">Projected Rainfall (mm)</label>
-                    <input type="number" name="rainfall" value="1000" required>
-                </div>
-                <div class="form-row">
-                    <label title="Anticipated rainfall deviation. -30% implies significant drought stress.">Rainfall
-                        Anomaly (%)</label>
-                    <input type="number" name="rainfall_anomaly" value="-10" required>
-                </div>
-                <div class="form-row">
-                    <label
-                        title="Fertilizer intensity. Higher usage can sometimes offset mild climate stress.">Fertilizer
-                        (kg/ha)</label>
-                    <input type="number" name="fertilizer_per_area" value="120" required>
-                </div>
-                <div class="form-row">
-                    <label title="Pesticide application rate.">Pesticide (kg/ha)</label>
-                    <input type="number" name="pesticide_per_area" step="0.1" value="2.5" required>
-                </div>
-                <button type="submit" class="predict-btn">🚀 Predict Crop Loss</button>
+                <div class="auto-features-panel" id="crop-auto-features" style="display: none;"><h4>What the AI computed:</h4><div class="features-grid"></div></div>
+                <button type="submit" class="predict-btn">Predict Crop Impact</button>
                 <button type="button" class="simulate-btn" data-form="crop">🔄 Simulate Scenario</button>
             </form>
 
@@ -555,7 +565,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
-    <script src="/static/app.js?v=4"></script>
+    <script src="/static/app.js?v=5"></script>
 </body>
 
 </html>
