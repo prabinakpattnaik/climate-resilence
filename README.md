@@ -86,6 +86,7 @@ print(monsoon.mean(), non_monsoon.mean())  # illustrates seasonal split
 - **Temporal lags:** 1, 2, 3, 12 months (autocorrelation + yearly cycle)   
 - **Rolling:** 3‑month average on *shifted* rainfall
 
+
 ```python
 # utils/data_loader.py — Rainfall features
 monthly_df['lag_1'] = monthly_df['rainfall'].shift(1)
