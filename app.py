@@ -100,9 +100,7 @@ def _compute_prediction_interval(model, features_df, model_type="regression",
                 )[0]))
         elif isinstance(estimator, (GradientBoostingRegressor, GradientBoostingClassifier)):
             # Use staged_predict for GradientBoosting variance estimation
-            staged = list(estimator.staged_predict(
-                transformed_df.values if hasattr(transformed_df, 'values') else transformed_df
-            ))
+            staged = list(estimator.staged_predict(transformed_df))
             n_stages = len(staged)
             step = max(1, n_stages // n_trees_sample)
             for i in range(0, n_stages, step):
