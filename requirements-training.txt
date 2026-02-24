@@ -1,0 +1,6 @@
+# Additional dependencies for model training (not needed for deployment)
+# Install with: pip install -r requirements.txt -r requirements-training.txt
+xgboost
+imbalanced-learn
+matplotlib
+seaborn

@@ -9,8 +9,4 @@ shapely
 pykml
 lxml
 python-multipart
-xgboost
-imbalanced-learn
 scipy
-matplotlib
-seaborn
