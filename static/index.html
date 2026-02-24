@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=3">
+    <link rel="stylesheet" href="/static/styles.css?v=4">
 </head>
 
 <body>
@@ -220,9 +220,6 @@
                     <label>Assessed Drought Probability (%)</label>
                     <input type="number" name="drought_prob" value="65" min="0" max="100">
                 </div>
-                <!-- Hidden coordinate storage for robustness -->
-                <input type="hidden" id="farm-lat-hidden">
-                <input type="hidden" id="farm-lon-hidden">
                 <button type="submit" class="predict-btn" style="background: #16a34a;">Generate Advisory Report</button>
 
                 <!-- NEW: Precision Satellite Scan -->
@@ -310,9 +307,6 @@
                         neighborhood scan (2km) for ground-level water logging & heat island risk.</p>
                     <button type="button" id="scan-urban-health" class="btn-primary"
                         style="width: 100%; background: #2563eb; border: none;">Scan Local Neighborhood</button>
-                    <!-- Hidden coords for simplicity -->
-                    <input type="hidden" id="urban-lat-hidden">
-                    <input type="hidden" id="urban-lon-hidden">
                 </div>
 
                 <div id="urban-results-container"
@@ -401,6 +395,14 @@
                     <div class="stat-header">🌾 Crop Impact</div>
                     <div class="stat-value" id="stat-crop">--</div>
                 </div>
+            </div>
+        </section>
+
+        <!-- Historical Trend Chart -->
+        <section class="chart-section">
+            <h2>Historical Rainfall Trends</h2>
+            <div style="position: relative; height: 320px; width: 100%;">
+                <canvas id="rainfall-trend-chart"></canvas>
             </div>
         </section>
 
@@ -553,7 +555,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet-omnivore@0.3.4/leaflet-omnivore.min.js"></script>
-    <script src="/static/app.js?v=3"></script>
+    <script src="/static/app.js?v=4"></script>
 </body>
 
 </html>

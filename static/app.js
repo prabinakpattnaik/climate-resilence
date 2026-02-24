@@ -2,7 +2,6 @@
 const API_BASE = '';  // Same origin
 
 // 1. INITIALIZE MAP & GLOBALS FIRST
-// 1. INITIALIZE MAP & GLOBALS FIRST
 const lightMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap &copy; CARTO'
 });
@@ -39,13 +38,17 @@ L.marker([17.385, 78.4867]).addTo(map)
     .bindPopup('<b>City Center (Hyderabad)</b><br>Click nearby to start routing.')
     .openPopup();
 
-// Layer Globals
+// Interaction State
 let startPoint = null;
 let endPoint = null;
 let startMarker = null;
 let endMarker = null;
 let routePolyline = null;
 let currentLayer = null;
+let isReportingFlooding = false;
+// Single source of truth for selected farm/urban points
+let selectedFarmPoint = null;
+let selectedUrbanPoint = null;
 
 async function fetchTourismSafety() {
     const list = document.getElementById('tourism-landmark-list');
@@ -297,17 +300,8 @@ map.on('click', (e) => {
     const statusEl = document.getElementById('result-status');
 
     if (activeModel === 'agri') {
-        const mapDiv = document.getElementById('map');
-        const latInp = document.getElementById('farm-lat-hidden');
-        const lonInp = document.getElementById('farm-lon-hidden');
-
-        mapDiv.dataset.farmLat = e.latlng.lat;
-        mapDiv.dataset.farmLon = e.latlng.lng;
-        if (latInp) latInp.value = e.latlng.lat;
-        if (lonInp) lonInp.value = e.latlng.lng;
-
+        selectedFarmPoint = e.latlng;
         startPoint = e.latlng;
-        window.selectedFarmPoint = e.latlng;
 
         if (startMarker) map.removeLayer(startMarker);
         if (precisionFarmLayer) precisionFarmLayer.clearLayers();
@@ -328,13 +322,7 @@ map.on('click', (e) => {
     }
 
     if (activeModel === 'grid') {
-        const latInp = document.getElementById('urban-lat-hidden');
-        const lonInp = document.getElementById('urban-lon-hidden');
-
-        if (latInp) latInp.value = e.latlng.lat;
-        if (lonInp) lonInp.value = e.latlng.lng;
-
-        window.selectedUrbanPoint = e.latlng;
+        selectedUrbanPoint = e.latlng;
 
         if (startMarker) map.removeLayer(startMarker);
         startMarker = L.marker(e.latlng, {
@@ -583,30 +571,11 @@ document.getElementById('agri-form').addEventListener('submit', async (e) => {
     }
 });
 
-// NEW: Phase 8 - Satellite Farm Scan logic
+// Phase 8 - Satellite Farm Scan logic
 document.getElementById('scan-farm-health').addEventListener('click', async () => {
-    const mapDiv = document.getElementById('map');
-    const latInp = document.getElementById('farm-lat-hidden');
-    const lonInp = document.getElementById('farm-lon-hidden');
+    const point = selectedFarmPoint || startPoint;
 
-    // Quadruple-check for coordinates (Local -> Window -> DOM Dataset -> Hidden Inputs)
-    if (!startPoint) {
-        if (window.selectedFarmPoint) {
-            startPoint = window.selectedFarmPoint;
-        } else if (mapDiv.dataset.farmLat) {
-            startPoint = {
-                lat: parseFloat(mapDiv.dataset.farmLat),
-                lng: parseFloat(mapDiv.dataset.farmLon)
-            };
-        } else if (latInp && latInp.value) {
-            startPoint = {
-                lat: parseFloat(latInp.value),
-                lng: parseFloat(lonInp.value)
-            };
-        }
-    }
-
-    if (!startPoint) {
+    if (!point) {
         showError('📍 Please click on your farm on the map first to set the scan center.');
         document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
         return;
@@ -622,8 +591,8 @@ document.getElementById('scan-farm-health').addEventListener('click', async () =
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                start_lat: startPoint.lat,
-                start_lon: startPoint.lng,
+                start_lat: point.lat,
+                start_lon: point.lng,
                 end_lat: 0, end_lon: 0 // placeholders
             })
         });
@@ -650,13 +619,7 @@ document.getElementById('scan-farm-health').addEventListener('click', async () =
 });
 
 document.getElementById('scan-urban-health').addEventListener('click', async () => {
-    const latInp = document.getElementById('urban-lat-hidden');
-    const lonInp = document.getElementById('urban-lon-hidden');
-    let point = window.selectedUrbanPoint;
-
-    if (!point && latInp && latInp.value) {
-        point = { lat: parseFloat(latInp.value), lng: parseFloat(lonInp.value) };
-    }
+    const point = selectedUrbanPoint;
 
     if (!point) {
         showError('🏙️ Please click on a specific neighborhood on the map first to set the scan center.');
@@ -922,8 +885,45 @@ function renderSafeRoute(path) {
 
 function displayResult(type, result) {
     const card = document.getElementById('result-card');
+    const valueEl = document.getElementById('result-value');
+    const statusEl = document.getElementById('result-status');
+    const detailsEl = document.getElementById('result-details');
+
     card.style.display = 'flex';
-    document.getElementById('result-value').textContent = type === 'heatwave' ? `${(result.heatwave_probability * 100).toFixed(0)}%` : `${result.predicted_rainfall_mm || result.yield_deviation_pct || 0}%`;
+
+    if (type === 'rainfall') {
+        const mm = result.predicted_rainfall_mm;
+        valueEl.textContent = `${mm} mm`;
+        statusEl.textContent = result.risk_category;
+        const riskColor = mm > 200 ? 'var(--danger)' : mm < 30 ? 'var(--warning)' : 'var(--success)';
+        valueEl.style.color = riskColor;
+        detailsEl.textContent = `Predicted monthly rainfall for Month ${result.input.month}. Based on lag features (${result.input.lag_1}mm, ${result.input.lag_2}mm, ${result.input.lag_3}mm).`;
+    } else if (type === 'drought') {
+        const score = result.drought_score;
+        valueEl.textContent = `${score}`;
+        statusEl.textContent = result.category;
+        const riskColor = score > 60 ? 'var(--danger)' : score > 30 ? 'var(--warning)' : 'var(--success)';
+        valueEl.style.color = riskColor;
+        detailsEl.textContent = `Drought severity index (0-100). ${result.category} detected based on rainfall deficit of ${result.input.deficit_pct}% and monsoon strength ${result.input.monsoon_strength}.`;
+    } else if (type === 'heatwave') {
+        const prob = (result.heatwave_probability * 100).toFixed(1);
+        valueEl.textContent = `${prob}%`;
+        statusEl.textContent = result.is_heatwave ? 'HEATWAVE ALERT' : 'No Heatwave Detected';
+        const riskColor = result.is_heatwave ? 'var(--danger)' : 'var(--success)';
+        valueEl.style.color = riskColor;
+        detailsEl.textContent = `Probability of heatwave conditions. Yesterday's max: ${result.input.max_temp_lag1}°C, Humidity: ${result.input.humidity}%. ${result.is_heatwave ? 'Take precautions - stay hydrated and avoid prolonged sun exposure.' : 'Conditions are within normal thresholds.'}`;
+    } else if (type === 'crop') {
+        const dev = result.yield_deviation_pct;
+        valueEl.textContent = `${dev}%`;
+        statusEl.textContent = result.impact_category;
+        const riskColor = dev > 30 ? 'var(--danger)' : dev > 15 ? 'var(--warning)' : 'var(--success)';
+        valueEl.style.color = riskColor;
+        detailsEl.textContent = `Predicted yield deviation from historical average. ${result.impact_category} for the selected crop with ${result.input?.rainfall || 0}mm projected rainfall.`;
+    } else {
+        valueEl.textContent = '--';
+        statusEl.textContent = 'Result';
+        detailsEl.textContent = JSON.stringify(result);
+    }
 }
 
 function showError(msg) {
@@ -965,7 +965,6 @@ async function loadSummary() {
 }
 
 // 5. RESILIENCE ADDONS
-let isReportingFlooding = false;
 
 document.getElementById('opacity-slider').addEventListener('input', (e) => {
     const opacity = e.target.value / 100;
@@ -1082,6 +1081,80 @@ document.querySelectorAll('.simulate-btn').forEach(btn => {
 loadKmlList();
 loadSummary();
 loadEmergencyResources();
+loadHistoricalChart();
+
+// 7. HISTORICAL RAINFALL TREND CHART (Chart.js)
+let rainfallChart = null;
+
+async function loadHistoricalChart() {
+    const canvas = document.getElementById('rainfall-trend-chart');
+    if (!canvas) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/historical_rainfall`);
+        const data = await res.json();
+
+        const labels = data.long_term_averages.map(a => a.month);
+        const avgData = data.long_term_averages.map(a => a.avg_mm);
+
+        const colors = ['#2563eb', '#dc2626', '#16a34a', '#ca8a04', '#7c3aed'];
+        const datasets = data.years.map((y, i) => ({
+            label: `${y.year}`,
+            data: y.monthly.map(m => m.rainfall_mm),
+            borderColor: colors[i % colors.length],
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            tension: 0.3,
+            pointRadius: 2
+        }));
+
+        datasets.push({
+            label: 'Long-term Average',
+            data: avgData,
+            borderColor: '#94a3b8',
+            backgroundColor: 'rgba(148,163,184,0.1)',
+            borderWidth: 2,
+            borderDash: [6, 3],
+            fill: true,
+            tension: 0.3,
+            pointRadius: 0
+        });
+
+        if (rainfallChart) rainfallChart.destroy();
+
+        rainfallChart = new Chart(canvas, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { usePointStyle: true, font: { size: 11 } }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Monthly Rainfall Trend vs Long-term Average (Hyderabad)',
+                        font: { size: 14, weight: '600' },
+                        color: '#1e293b'
+                    }
+                },
+                scales: {
+                    y: {
+                        title: { display: true, text: 'Rainfall (mm)' },
+                        beginAtZero: true
+                    },
+                    x: {
+                        title: { display: true, text: 'Month' }
+                    }
+                }
+            }
+        });
+    } catch (err) {
+        console.error('Failed to load historical chart', err);
+    }
+}
 
 function renderAgriFloodRisk(fr) {
     const floodBox = document.getElementById('agri-flood-box');

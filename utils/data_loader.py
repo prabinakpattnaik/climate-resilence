@@ -65,19 +65,24 @@ def load_rainfall_data():
 def load_drought_data():
     """
     Load and preprocess drought data (using rainfall data source).
+
+    IMPORTANT: Features use LAGGED (shifted) values only to prevent data leakage.
+    The target (drought_score) is derived from current-month rainfall deficit,
+    so features must not include current-month deficit or unshifted rolling averages.
+
     Returns:
         X (DataFrame): Features
         y (Series): Target (drought_score)
     """
     if not os.path.exists(RAINFALL_PATH):
         raise FileNotFoundError("Rainfall data not found for drought model")
-        
+
     df = pd.read_csv(RAINFALL_PATH)
-    
+
     # Melt to monthly format (Same as rainfall)
-    months = ['Jan', 'Feb', 'Mar', 'April', 'May', 'June', 
+    months = ['Jan', 'Feb', 'Mar', 'April', 'May', 'June',
               'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
-    
+
     records = []
     for _, row in df.iterrows():
         for i, month in enumerate(months):
@@ -87,47 +92,48 @@ def load_drought_data():
                     'Month': i + 1,
                     'Rainfall': row[month]
                 })
-    
+
     df_melted = pd.DataFrame(records)
     df_melted = df_melted.sort_values(['Year', 'Month']).reset_index(drop=True)
-    
+
     # --- Feature Engineering specific to Drought ---
-    
-    # Rolling averages
-    df_melted['rolling_3mo'] = df_melted['Rainfall'].rolling(window=3, min_periods=1).mean()
-    df_melted['rolling_6mo'] = df_melted['Rainfall'].rolling(window=6, min_periods=1).mean()
-    
+    # FIX: All rolling averages SHIFTED by 1 to avoid leaking current month's data
+
+    # Rolling averages using ONLY past data (shift(1) excludes current month)
+    df_melted['rolling_3mo'] = df_melted['Rainfall'].shift(1).rolling(window=3, min_periods=1).mean()
+    df_melted['rolling_6mo'] = df_melted['Rainfall'].shift(1).rolling(window=6, min_periods=1).mean()
+
     # Calculate normal rainfall per month (long-term average)
     monthly_normals = df_melted.groupby('Month')['Rainfall'].transform('mean')
     df_melted['normal_rainfall'] = monthly_normals
-    
-    # Deficit percentage
-    df_melted['deficit_pct'] = (df_melted['normal_rainfall'] - df_melted['Rainfall']) / df_melted['normal_rainfall'] * 100
-    df_melted['deficit_pct'] = df_melted['deficit_pct'].clip(lower=0, upper=100)
-    
+
+    # FIX: Use LAGGED deficit (previous month's deficit), not current month's
+    df_melted['_raw_deficit'] = (df_melted['normal_rainfall'] - df_melted['Rainfall']) / df_melted['normal_rainfall'].replace(0, 1) * 100
+    df_melted['_raw_deficit'] = df_melted['_raw_deficit'].clip(lower=0, upper=100)
+    df_melted['deficit_pct'] = df_melted['_raw_deficit'].shift(1)  # Previous month's deficit as feature
+
     # Previous year's drought indicator (lag 12)
-    df_melted['prev_year_drought'] = df_melted['deficit_pct'].shift(12)
-    
-    # Monsoon strength (approximate)
-    df_melted['rolling_4mo_sum'] = df_melted['Rainfall'].rolling(window=4, min_periods=1).sum()
+    df_melted['prev_year_drought'] = df_melted['_raw_deficit'].shift(12)
+
+    # Monsoon strength (approximate) - also lagged
+    df_melted['rolling_4mo_sum'] = df_melted['Rainfall'].shift(1).rolling(window=4, min_periods=1).sum()
     monsoon_normal = df_melted[df_melted['Month'].isin([6,7,8,9])]['Rainfall'].mean() * 4
     df_melted['monsoon_strength'] = df_melted['rolling_4mo_sum'] / monsoon_normal
     df_melted['monsoon_strength'] = df_melted['monsoon_strength'].clip(upper=2.0)
-    
-    # Target: Drought Score
-    # Logic: If rainfall is 0 when normal is 0, score is 0. Else use deficit.
+
+    # Target: Drought Score (uses CURRENT month data - this is what we predict)
     def calculate_score(row):
         if row['normal_rainfall'] == 0: return 0
         deficit = (row['normal_rainfall'] - row['Rainfall']) / row['normal_rainfall'] * 100
         return max(0, min(100, deficit))
 
     df_melted['drought_score'] = df_melted.apply(calculate_score, axis=1)
-    
+
     df_melted = df_melted.dropna()
-    
+
     features = ['rolling_3mo', 'rolling_6mo', 'deficit_pct', 'prev_year_drought', 'monsoon_strength']
     target = 'drought_score'
-    
+
     return df_melted[features], df_melted[target]
 
 def load_heatwave_data():
