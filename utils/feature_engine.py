@@ -13,6 +13,7 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 RAINFALL_PATH = os.path.join(DATA_DIR, "hyderabad_rainfall_data.csv")
 TEMP_PATH = os.path.join(DATA_DIR, "hyderabad_temperature.csv")
 CROP_PATH = os.path.join(DATA_DIR, "crop_yield_india.csv")
+ENSO_PATH = os.path.join(DATA_DIR, "enso_mei.csv")
 
 
 class SmartFeatureEngine:
@@ -22,6 +23,7 @@ class SmartFeatureEngine:
         self._rainfall_monthly = None
         self._temp_df = None
         self._crop_df = None
+        self._enso_df = None
 
     # --- Lazy loaders (cached after first call) ---
 
@@ -56,6 +58,40 @@ class SmartFeatureEngine:
             return self._crop_df
         self._crop_df = pd.read_csv(CROP_PATH)
         return self._crop_df
+
+    def _load_enso(self):
+        """Lazy-load ENSO MEI v2 data."""
+        if self._enso_df is not None:
+            return self._enso_df
+        if os.path.exists(ENSO_PATH):
+            self._enso_df = pd.read_csv(ENSO_PATH)
+        else:
+            self._enso_df = pd.DataFrame(columns=['year', 'month', 'mei_value'])
+        return self._enso_df
+
+    def _get_enso_values(self, target_year: int, target_month: int) -> tuple:
+        """
+        Look up ENSO MEI value for target month and 3-month lagged value.
+        Returns (mei_value, mei_lag3).
+        """
+        enso = self._load_enso()
+        if len(enso) == 0:
+            return 0.0, 0.0
+
+        # Current MEI
+        row = enso[(enso['year'] == target_year) & (enso['month'] == target_month)]
+        mei_value = float(row.iloc[0]['mei_value']) if len(row) > 0 else 0.0
+
+        # 3-month lagged MEI
+        lag_month = target_month - 3
+        lag_year = target_year
+        if lag_month <= 0:
+            lag_month += 12
+            lag_year -= 1
+        lag_row = enso[(enso['year'] == lag_year) & (enso['month'] == lag_month)]
+        mei_lag3 = float(lag_row.iloc[0]['mei_value']) if len(lag_row) > 0 else 0.0
+
+        return mei_value, mei_lag3
 
     # --- RAINFALL ---
 
@@ -100,6 +136,9 @@ class SmartFeatureEngine:
         month_cos = float(np.cos(2 * np.pi * target_month / 12))
         rolling_3 = (lag_1 + lag_2 + lag_3) / 3.0
 
+        # NEW v3: ENSO index
+        mei_value, mei_lag3 = self._get_enso_values(last_year, target_month)
+
         return {
             'lag_1': round(lag_1, 2),
             'lag_2': round(lag_2, 2),
@@ -108,6 +147,8 @@ class SmartFeatureEngine:
             'month_sin': round(month_sin, 6),
             'month_cos': round(month_cos, 6),
             'rolling_3': round(rolling_3, 2),
+            'mei_value': round(mei_value, 3),
+            'mei_lag3': round(mei_lag3, 3),
             'month': target_month
         }
 
@@ -188,6 +229,9 @@ class SmartFeatureEngine:
             else:
                 break
 
+        # NEW v3: ENSO index for drought prediction
+        mei_value, mei_lag3 = self._get_enso_values(last_year, target_month)
+
         return {
             'rolling_3mo_avg': round(rolling_3mo, 2),
             'rolling_6mo_avg': round(rolling_6mo, 2),
@@ -196,7 +240,9 @@ class SmartFeatureEngine:
             'monsoon_strength': round(monsoon_strength, 3),
             'spi_3': round(spi_3, 3),
             'spi_6': round(spi_6, 3),
-            'consecutive_dry_months': min(12, consecutive_dry)
+            'consecutive_dry_months': min(12, consecutive_dry),
+            'mei_value': round(mei_value, 3),
+            'mei_lag3': round(mei_lag3, 3)
         }
 
     def _compute_spi_for_month(self, full_df, recent, idx, target_month, window=3):
@@ -241,7 +287,9 @@ class SmartFeatureEngine:
             'monsoon_strength': 0.8,
             'spi_3': 0.0,
             'spi_6': 0.0,
-            'consecutive_dry_months': 2
+            'consecutive_dry_months': 2,
+            'mei_value': 0.0,
+            'mei_lag3': 0.0
         }
 
     # --- HEATWAVE ---
@@ -299,6 +347,51 @@ class SmartFeatureEngine:
                 break
         heat_streak = min(14, heat_streak)
 
+        # NEW v3: Weather-enriched features from extended CSV
+        wind_speed_lag1 = 0.0
+        wind_gusts_lag1 = 0.0
+        solar_rad_lag1 = 0.0
+        solar_rad_3day_avg = 0.0
+        et0_lag1 = 0.0
+        et0_7day_avg = 0.0
+        soil_moisture_lag1 = 0.2
+        pressure_lag1 = 1013.0
+        pressure_change_1d = 0.0
+
+        if 'wind_speed_max' in last_rows.columns:
+            wind_speed_lag1 = float(last_rows.iloc[-1]['wind_speed_max'])
+            wind_gusts_lag1 = float(last_rows.iloc[-1].get('wind_gusts_max', 0.0))
+
+        if 'solar_radiation' in last_rows.columns:
+            solar_rad_lag1 = float(last_rows.iloc[-1]['solar_radiation'])
+            solar_rad_3day_avg = float(last_rows.tail(3)['solar_radiation'].mean())
+
+        if 'et0_evapotranspiration' in last_rows.columns:
+            et0_lag1 = float(last_rows.iloc[-1]['et0_evapotranspiration'])
+            et0_7day_avg = float(last_rows.tail(7)['et0_evapotranspiration'].mean())
+
+        if 'soil_moisture_0_10cm' in last_rows.columns:
+            soil_moisture_lag1 = float(last_rows.iloc[-1]['soil_moisture_0_10cm'])
+
+        if 'pressure_msl' in last_rows.columns:
+            pressure_lag1 = float(last_rows.iloc[-1]['pressure_msl'])
+            if len(last_rows) >= 2:
+                pressure_change_1d = float(
+                    last_rows.iloc[-1]['pressure_msl'] - last_rows.iloc[-2]['pressure_msl']
+                )
+
+        # Try live data for wind/pressure if CSV doesn't have them
+        if wind_speed_lag1 == 0.0:
+            try:
+                from utils.weather_service import WeatherService
+                ws = WeatherService()
+                live = ws.get_live_conditions()
+                if live.get('status') == 'success':
+                    wind_speed_lag1 = float(live.get('wind_speed', 0.0))
+                    pressure_lag1 = float(live.get('pressure', 1013.0))
+            except Exception:
+                pass
+
         return {
             'max_temp_lag1': round(temp_max_lag1, 1),
             'max_temp_lag2': round(temp_max_lag2, 1),
@@ -312,7 +405,17 @@ class SmartFeatureEngine:
             'temp_min_lag1': round(temp_min_lag1, 1),
             'temp_min_7day_avg': round(temp_min_7day_avg, 1),
             'precip_7day_sum': round(precip_7day_sum, 1),
-            'heat_streak': heat_streak
+            'heat_streak': heat_streak,
+            # NEW v3: Weather-enriched features
+            'wind_speed_lag1': round(wind_speed_lag1, 1),
+            'wind_gusts_lag1': round(wind_gusts_lag1, 1),
+            'solar_rad_lag1': round(solar_rad_lag1, 1),
+            'solar_rad_3day_avg': round(solar_rad_3day_avg, 1),
+            'et0_lag1': round(et0_lag1, 2),
+            'et0_7day_avg': round(et0_7day_avg, 2),
+            'soil_moisture_lag1': round(soil_moisture_lag1, 3),
+            'pressure_lag1': round(pressure_lag1, 1),
+            'pressure_change_1d': round(pressure_change_1d, 1)
         }
 
     # --- CROP ---

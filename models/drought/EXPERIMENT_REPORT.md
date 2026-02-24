@@ -1,7 +1,7 @@
 # Experiment Report: Drought Prediction (v2)
 
 **Best Model:** Ridge Regression
-**Test R2 Score:** 0.2139
+**Test R2 Score:** 0.1395
 
 ## 1. Overview
 This model calculates a drought severity score (0-100) based on rainfall deficits and monsoon strength.
@@ -23,7 +23,7 @@ This model calculates a drought severity score (0-100) based on rainfall deficit
 ## 4. Comparison Metrics
 | Model | R2 Score | RMSE | MAE |
 |-------|----------|------|-----|
-| Ridge Regression | 0.2139 | 36.51 | 31.62 |
-| SVR | 0.1842 | 37.19 | 31.36 |
-| Random Forest | 0.2043 | 36.73 | 31.62 |
-| XGBoost | 0.1948 | 36.95 | 31.87 |
+| Ridge Regression | 0.1395 | 38.13 | 32.82 |
+| SVR | 0.0845 | 39.33 | 33.25 |
+| Random Forest | 0.1218 | 38.52 | 33.58 |
+| XGBoost | 0.1263 | 38.42 | 34.01 |

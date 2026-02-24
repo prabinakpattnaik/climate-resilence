@@ -1,7 +1,7 @@
 # Experiment Report: Rainfall Prediction (v2)
 
 **Best Model:** Random Forest
-**Test R2 Score:** 0.5667
+**Test R2 Score:** 0.5912
 
 ## 1. Overview
 This model predicts monthly rainfall in Hyderabad using historical lag features and rolling averages.
@@ -22,7 +22,7 @@ This model predicts monthly rainfall in Hyderabad using historical lag features 
 ## 4. Comparison Metrics
 | Model | R2 Score | RMSE | MAE |
 |-------|----------|------|-----|
-| Linear Regression | 0.5489 | 60.43 | 38.07 |
-| Random Forest | 0.5667 | 59.22 | 35.89 |
-| Gradient Boosting | 0.5339 | 61.42 | 38.70 |
-| XGBoost | 0.5587 | 59.77 | 37.23 |
+| Linear Regression | 0.5815 | 59.24 | 38.36 |
+| Random Forest | 0.5912 | 58.55 | 36.28 |
+| Gradient Boosting | 0.5424 | 61.94 | 39.44 |
+| XGBoost | 0.5770 | 59.55 | 37.49 |

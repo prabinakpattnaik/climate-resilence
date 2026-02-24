@@ -1,7 +1,7 @@
 # Experiment Report: Heatwave Prediction (v2)
 
 **Best Model:** XGBoost
-**Test F1 Score:** 0.6471
+**Test F1 Score:** 0.5714
 
 ## 1. Overview
 This model classifies days as 'Heatwave' or 'Normal' based on previous days' temperatures and humidity.
@@ -28,7 +28,7 @@ This model classifies days as 'Heatwave' or 'Normal' based on previous days' tem
 ## 4. Comparison Metrics
 | Model | Accuracy | F1 Score |
 |-------|----------|----------|
-| Logistic Regression | 0.9315 | 0.3243 |
-| Random Forest | 0.9795 | 0.5714 |
-| Gradient Boosting | 0.9822 | 0.6286 |
-| XGBoost | 0.9836 | 0.6471 |
+| Logistic Regression | 0.9290 | 0.2785 |
+| Random Forest | 0.9826 | 0.5625 |
+| Gradient Boosting | 0.9801 | 0.5294 |
+| XGBoost | 0.9851 | 0.5714 |

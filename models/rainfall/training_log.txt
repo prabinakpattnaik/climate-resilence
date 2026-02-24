@@ -4,23 +4,23 @@ EXPERIMENT 1: RAINFALL PREDICTION (Regression)
 ============================================================
 
 [Data] Loading and splitting data...
-   Train shape: (1152, 7), Test shape: (288, 7)
+   Train shape: (1190, 9), Test shape: (298, 9)
 
 [Experiment] Training candidate models...
    > Training Linear Regression...
-     R2: 0.5489 | RMSE: 60.43 | MAE: 38.07
+     R2: 0.5815 | RMSE: 59.24 | MAE: 38.36
    > Training Random Forest...
-     Best Params: {'max_depth': 10, 'min_samples_leaf': 5, 'n_estimators': 100}
-     R2: 0.5667 | RMSE: 59.22 | MAE: 35.89
+     Best Params: {'max_depth': 10, 'min_samples_leaf': 5, 'n_estimators': 200}
+     R2: 0.5912 | RMSE: 58.55 | MAE: 36.28
    > Training Gradient Boosting...
      Best Params: {'learning_rate': 0.01, 'max_depth': 3, 'n_estimators': 200}
-     R2: 0.5339 | RMSE: 61.42 | MAE: 38.70
+     R2: 0.5424 | RMSE: 61.94 | MAE: 39.44
    > Training XGBoost...
-     Best Params: {'colsample_bytree': 0.8, 'learning_rate': 0.01, 'max_depth': 3, 'n_estimators': 300, 'reg_alpha': 0.1, 'reg_lambda': 2, 'subsample': 1.0}
-     R2: 0.5587 | RMSE: 59.77 | MAE: 37.23
+     Best Params: {'colsample_bytree': 0.8, 'learning_rate': 0.01, 'max_depth': 3, 'n_estimators': 300, 'reg_alpha': 0, 'reg_lambda': 2, 'subsample': 1.0}
+     R2: 0.5770 | RMSE: 59.55 | MAE: 37.49
 
 ============================================================
-WINNER: Random Forest (R2: 0.5667)
+WINNER: Random Forest (R2: 0.5912)
 ============================================================
 Plots saved to C:\Users\prabina\Code\resilience-grid-main\.claude\worktrees\trusting-wu\static\plots
 Report saved to C:\Users\prabina\Code\resilience-grid-main\.claude\worktrees\trusting-wu\models\rainfall

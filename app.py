@@ -210,6 +210,8 @@ class RainfallRequest(BaseModel):
     lag_3: float
     lag_12: float
     month: int
+    mei_value: float = 0.0
+    mei_lag3: float = 0.0
 
 class DroughtRequest(BaseModel):
     rolling_3mo_avg: float
@@ -220,6 +222,8 @@ class DroughtRequest(BaseModel):
     spi_3: float = 0.0
     spi_6: float = 0.0
     consecutive_dry_months: int = 0
+    mei_value: float = 0.0
+    mei_lag3: float = 0.0
 
 class HeatwaveRequest(BaseModel):
     max_temp_lag1: float
@@ -232,6 +236,16 @@ class HeatwaveRequest(BaseModel):
     temp_min_7day_avg: float = 22.5
     precip_7day_sum: float = 0.0
     heat_streak: int = 0
+    # NEW v3: Weather-enriched features
+    wind_speed_lag1: float = 0.0
+    wind_gusts_lag1: float = 0.0
+    solar_rad_lag1: float = 0.0
+    solar_rad_3day_avg: float = 0.0
+    et0_lag1: float = 0.0
+    et0_7day_avg: float = 0.0
+    soil_moisture_lag1: float = 0.2
+    pressure_lag1: float = 1013.0
+    pressure_change_1d: float = 0.0
 
 class CropRequest(BaseModel):
     crop_type: str
@@ -393,7 +407,9 @@ def predict_rainfall(req: RainfallRequest):
         "lag_12": req.lag_12,
         "month_sin": month_sin,
         "month_cos": month_cos,
-        "rolling_3": rolling_3
+        "rolling_3": rolling_3,
+        "mei_value": req.mei_value,
+        "mei_lag3": req.mei_lag3
     }])
     
     pred = max(0, rainfall_model.predict(features_df)[0])
@@ -418,7 +434,9 @@ def predict_drought(req: DroughtRequest):
         'monsoon_strength': req.monsoon_strength,
         'spi_3': req.spi_3,
         'spi_6': req.spi_6,
-        'consecutive_dry_months': req.consecutive_dry_months
+        'consecutive_dry_months': req.consecutive_dry_months,
+        'mei_value': req.mei_value,
+        'mei_lag3': req.mei_lag3
     }])
 
     score = max(0, min(100, drought_model.predict(features)[0]))
@@ -445,7 +463,12 @@ def predict_heatwave(req: HeatwaveRequest):
         'temp_max_7day_avg': temp_7day_avg, 'humidity': req.humidity, 'month_sin': month_sin, 'month_cos': month_cos, 'month': req.month,
         'diurnal_range_lag1': req.diurnal_range_lag1, 'temp_min_lag1': req.temp_min_lag1,
         'temp_min_7day_avg': req.temp_min_7day_avg, 'precip_7day_sum': req.precip_7day_sum,
-        'heat_streak': req.heat_streak
+        'heat_streak': req.heat_streak,
+        'wind_speed_lag1': req.wind_speed_lag1, 'wind_gusts_lag1': req.wind_gusts_lag1,
+        'solar_rad_lag1': req.solar_rad_lag1, 'solar_rad_3day_avg': req.solar_rad_3day_avg,
+        'et0_lag1': req.et0_lag1, 'et0_7day_avg': req.et0_7day_avg,
+        'soil_moisture_lag1': req.soil_moisture_lag1,
+        'pressure_lag1': req.pressure_lag1, 'pressure_change_1d': req.pressure_change_1d
     }])
 
     prediction = heatwave_model.predict(features)[0]
@@ -529,7 +552,12 @@ def _compute_baselines(weather):
             'month': pd.Timestamp.now().month,
             'diurnal_range_lag1': 12.0, 'temp_min_lag1': 23.0,
             'temp_min_7day_avg': 22.5, 'precip_7day_sum': 0.0,
-            'heat_streak': 0
+            'heat_streak': 0,
+            'wind_speed_lag1': 10.0, 'wind_gusts_lag1': 15.0,
+            'solar_rad_lag1': 15.0, 'solar_rad_3day_avg': 15.0,
+            'et0_lag1': 4.0, 'et0_7day_avg': 4.0,
+            'soil_moisture_lag1': 0.2,
+            'pressure_lag1': 1013.0, 'pressure_change_1d': 0.0
         }])
         try:
             hw_prob = round(float(heatwave_model.predict_proba(features)[0][1]) * 100, 1)
@@ -653,7 +681,16 @@ def impact_showcase():
                 'temp_min_lag1': hw_features['temp_min_lag1'],
                 'temp_min_7day_avg': hw_features['temp_min_7day_avg'],
                 'precip_7day_sum': hw_features['precip_7day_sum'],
-                'heat_streak': hw_features['heat_streak']
+                'heat_streak': hw_features['heat_streak'],
+                'wind_speed_lag1': hw_features.get('wind_speed_lag1', 0.0),
+                'wind_gusts_lag1': hw_features.get('wind_gusts_lag1', 0.0),
+                'solar_rad_lag1': hw_features.get('solar_rad_lag1', 0.0),
+                'solar_rad_3day_avg': hw_features.get('solar_rad_3day_avg', 0.0),
+                'et0_lag1': hw_features.get('et0_lag1', 0.0),
+                'et0_7day_avg': hw_features.get('et0_7day_avg', 0.0),
+                'soil_moisture_lag1': hw_features.get('soil_moisture_lag1', 0.2),
+                'pressure_lag1': hw_features.get('pressure_lag1', 1013.0),
+                'pressure_change_1d': hw_features.get('pressure_change_1d', 0.0)
             }])
             hw_prob = round(float(heatwave_model.predict_proba(hw_df)[0][1]) * 100, 1)
 
@@ -703,7 +740,9 @@ def impact_showcase():
                 'monsoon_strength': dr_features['monsoon_strength'],
                 'spi_3': dr_features['spi_3'],
                 'spi_6': dr_features['spi_6'],
-                'consecutive_dry_months': dr_features['consecutive_dry_months']
+                'consecutive_dry_months': dr_features['consecutive_dry_months'],
+                'mei_value': dr_features.get('mei_value', 0.0),
+                'mei_lag3': dr_features.get('mei_lag3', 0.0)
             }])
             drought_score = round(max(0, min(100, drought_model.predict(dr_df)[0])), 0)
             drought_cat = ("Extreme" if drought_score > 80 else "Severe" if drought_score > 60
@@ -741,8 +780,9 @@ def impact_showcase():
         "generated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "data_sources": {
             "crop": "19,000+ records India Crop Yield dataset",
-            "heatwave": "10 years Open-Meteo temperature data",
-            "drought": "121 years IMD Hyderabad rainfall"
+            "heatwave": "11 years Open-Meteo weather data (temp, wind, solar, pressure, soil moisture)",
+            "drought": "125 years Hyderabad rainfall + NOAA ENSO index",
+            "enso": "NOAA MEI v2 (1979-2026) El Nino/La Nina climate index"
         }
     }
 
@@ -864,7 +904,9 @@ def smart_predict_rainfall(req: SmartRainfallRequest):
         "lag_12": features['lag_12'],
         "month_sin": features['month_sin'],
         "month_cos": features['month_cos'],
-        "rolling_3": features['rolling_3']
+        "rolling_3": features['rolling_3'],
+        "mei_value": features.get('mei_value', 0.0),
+        "mei_lag3": features.get('mei_lag3', 0.0)
     }])
 
     pred = max(0, rainfall_model.predict(features_df)[0])
@@ -895,7 +937,9 @@ def smart_predict_drought(req: SmartDroughtRequest):
         'monsoon_strength': features['monsoon_strength'],
         'spi_3': features['spi_3'],
         'spi_6': features['spi_6'],
-        'consecutive_dry_months': features['consecutive_dry_months']
+        'consecutive_dry_months': features['consecutive_dry_months'],
+        'mei_value': features.get('mei_value', 0.0),
+        'mei_lag3': features.get('mei_lag3', 0.0)
     }])
 
     score = max(0, min(100, drought_model.predict(features_df)[0]))
@@ -933,7 +977,16 @@ def smart_predict_heatwave(req: SmartHeatwaveRequest):
         'temp_min_lag1': features['temp_min_lag1'],
         'temp_min_7day_avg': features['temp_min_7day_avg'],
         'precip_7day_sum': features['precip_7day_sum'],
-        'heat_streak': features['heat_streak']
+        'heat_streak': features['heat_streak'],
+        'wind_speed_lag1': features.get('wind_speed_lag1', 0.0),
+        'wind_gusts_lag1': features.get('wind_gusts_lag1', 0.0),
+        'solar_rad_lag1': features.get('solar_rad_lag1', 0.0),
+        'solar_rad_3day_avg': features.get('solar_rad_3day_avg', 0.0),
+        'et0_lag1': features.get('et0_lag1', 0.0),
+        'et0_7day_avg': features.get('et0_7day_avg', 0.0),
+        'soil_moisture_lag1': features.get('soil_moisture_lag1', 0.2),
+        'pressure_lag1': features.get('pressure_lag1', 1013.0),
+        'pressure_change_1d': features.get('pressure_change_1d', 0.0)
     }])
 
     prediction = heatwave_model.predict(features_df)[0]

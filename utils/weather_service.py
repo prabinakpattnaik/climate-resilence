@@ -121,7 +121,11 @@ class WeatherService:
         params = {
             "latitude": self.lat,
             "longitude": self.lon,
-            "current": ["temperature_2m", "relative_humidity_2m", "precipitation"],
+            "current": [
+                "temperature_2m", "relative_humidity_2m", "precipitation",
+                # NEW v3: Wind and pressure for heatwave model
+                "wind_speed_10m", "wind_gusts_10m", "surface_pressure",
+            ],
             "timezone": "auto"
         }
         try:
@@ -133,12 +137,20 @@ class WeatherService:
                 "temperature": current.get("temperature_2m", 30.0),
                 "humidity": current.get("relative_humidity_2m", 50.0),
                 "precipitation": current.get("precipitation", 0.0),
+                # NEW v3
+                "wind_speed": current.get("wind_speed_10m", 0.0),
+                "wind_gusts": current.get("wind_gusts_10m", 0.0),
+                "pressure": current.get("surface_pressure", 1013.0),
                 "status": "success"
             }
             self._set_cached('conditions', result)
             return result
         except Exception as e:
-            return {"temperature": 30.0, "humidity": 50.0, "precipitation": 0.0, "status": "error"}
+            return {
+                "temperature": 30.0, "humidity": 50.0, "precipitation": 0.0,
+                "wind_speed": 0.0, "wind_gusts": 0.0, "pressure": 1013.0,
+                "status": "error"
+            }
 
 
 if __name__ == "__main__":
